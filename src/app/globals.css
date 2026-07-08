@@ -1,0 +1,228 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0da487;
+  --color-primary-dark: #0a8c73;
+  --color-primary-light: #e6f7f4;
+  --color-dark: #222222;
+  --color-muted: #6b7280;
+  --color-light-bg: #f8f8f8;
+  --color-border: #e5e7eb;
+  --color-white: #ffffff;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-badge-sale: #ef4444;
+  --color-badge-new: #3b82f6;
+  --color-badge-organic: #16a34a;
+  --color-badge-hot: #f97316;
+
+  --font-sans: "Inter", sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-card: 0 2px 16px 0 rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 8px 32px 0 rgba(0, 0, 0, 0.12);
+}
+
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+    font-family: var(--font-sans);
+    color: var(--color-dark);
+    background-color: var(--color-light-bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: inherit !important;
+    background-color: transparent !important;
+    text-decoration: none !important;
+  }
+
+  a:hover {
+    text-decoration: none !important;
+  }
+
+  img {
+    max-width: 100%;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #c5c5c5;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+}
+
+@layer utilities {
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: var(--color-primary);
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-primary-dark);
+    box-shadow: 0 4px 12px rgba(13, 164, 135, 0.3);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: transparent;
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-outline:hover {
+    background-color: var(--color-primary-light);
+  }
+
+  .card {
+    background: white;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .badge-sale {
+    background-color: var(--color-badge-sale);
+    color: white;
+  }
+
+  .badge-new {
+    background-color: var(--color-badge-new);
+    color: white;
+  }
+
+  .badge-organic {
+    background-color: var(--color-badge-organic);
+    color: white;
+  }
+
+  .badge-hot {
+    background-color: var(--color-badge-hot);
+    color: white;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-dark);
+    position: relative;
+    padding-bottom: 0.5rem;
+  }
+
+  .section-title::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 48px;
+    height: 3px;
+    background-color: var(--color-primary);
+    border-radius: 2px;
+  }
+
+  /* Custom overrides for rsuite AuthModal to enable edge-to-edge content */
+  .auth-modal-v2 .rs-modal-content {
+    padding: 0 !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+  }
+
+  .auth-modal-v2 .rs-modal-body {
+    padding: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  .rs-modal .rs-modal-dialog {
+    padding: 0 !important;
+  }
+}
+
+.text-white {
+  color: #fff !important;
+}
