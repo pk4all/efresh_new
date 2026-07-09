@@ -1,40 +1,17 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import HeroBannerSlider from "@/components/home/HeroBannerSlider";
 import PromoBanners from "@/components/home/PromoBanners";
 import TodayDealsSection from "@/components/home/TodayDealsSection";
 import OfferBannersSection from "@/components/home/OfferBannersSection";
-import ProductSection from "@/components/home/ProductSection";
+import FeaturedProductsSection from "@/components/home/FeaturedProductsSection";
+import BestSellersSection from "@/components/home/BestSellersSection";
+import NewArrivalsSection from "@/components/home/NewArrivalsSection";
 import NewsletterSection from "@/components/home/NewsletterSection";
 import Sidebar from "@/components/home/Sidebar";
-import ProductCard from "@/components/product/ProductCard";
-import { products, getFeaturedProducts, getBestSellers, getNewArrivals } from "@/data/products";
-import { Product } from "@/types";
-
-const TABS = ["All", "Vegetables", "Fruits", "Protein", "Snacks"] as const;
-type Tab = (typeof TABS)[number];
-
-const tabFilter: Record<Tab, (p: Product) => boolean> = {
-  All: () => true,
-  Vegetables: (p) => p.category === "Vegetables & Fruit",
-  Fruits: (p) => p.category === "Vegetables & Fruit" && ["vf-2", "vf-5", "vf-6", "vf-3"].includes(p.id),
-  Protein: (p) => ["bs-4", "db-1", "db-2", "db-5"].includes(p.id),
-  Snacks: (p) => p.category === "Biscuits & Snacks",
-};
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<Tab>("All");
-  const featured = getFeaturedProducts();
-  const bestSellers = getBestSellers();
-  const newArrivals = getNewArrivals();
-
-  const tabProducts =
-    activeTab === "All"
-      ? bestSellers.slice(0, 8)
-      : products.filter(tabFilter[activeTab]).slice(0, 8);
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Hero */}
@@ -59,40 +36,10 @@ export default function HomePage() {
           <OfferBannersSection />
 
           {/* Featured Products */}
-          <ProductSection
-            title="Featured Products"
-            viewAllHref="/products"
-            products={featured}
-            columns={4}
-          />
+          <FeaturedProductsSection />
 
           {/* Best Sellers with tabs */}
-          <section>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <h2 className="section-title">Best Sellers</h2>
-              <div className="flex gap-1 flex-wrap">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer"
-                    style={{
-                      backgroundColor: activeTab === tab ? "var(--color-primary)" : "var(--color-light-bg)",
-                      color: activeTab === tab ? "white" : "var(--color-muted)",
-                      border: `1.5px solid ${activeTab === tab ? "var(--color-primary)" : "var(--color-border)"}`,
-                    }}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {tabProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </section>
+          <BestSellersSection />
 
           {/* Special Offer Banner */}
           <section
@@ -122,12 +69,7 @@ export default function HomePage() {
           </section>
 
           {/* New Arrivals */}
-          <ProductSection
-            title="New Arrivals"
-            viewAllHref="/products?filter=new"
-            products={newArrivals}
-            columns={4}
-          />
+          <NewArrivalsSection />
         </div>
       </div>
 

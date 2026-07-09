@@ -176,7 +176,7 @@ export default function CheckoutPage() {
                 {items.map((item) => (
                   <div key={item.product.id} className="flex items-center gap-3">
                     <div className="relative w-12 h-12 rounded-sm overflow-hidden bg-gray-50 flex-shrink-0">
-                      <Image src={item.product.image} alt={item.product.name} fill className="object-cover" sizes="48px" />
+                      <Image src={item.product.image} alt={item.product.name} fill className="object-cover" sizes="48px" unoptimized />
                       <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center font-bold"
                         style={{ backgroundColor: "var(--color-primary)" }}>
                         {item.quantity}

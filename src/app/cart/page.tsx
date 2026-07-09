@@ -76,7 +76,7 @@ export default function CartPage() {
                 {/* Image + name */}
                 <div className="col-span-12 sm:col-span-6 flex items-center gap-3">
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
-                    <Image src={item.product.image} alt={item.product.name} fill className="object-cover" sizes="64px" />
+                    <Image src={item.product.image} alt={item.product.name} fill className="object-cover" sizes="64px" unoptimized />
                   </div>
                   <div className="min-w-0">
                     <Link href={`/product/${item.product.slug}`}

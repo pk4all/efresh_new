@@ -59,6 +59,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
               src={product.image}
               alt={product.name}
               fill
+              unoptimized
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
               priority
@@ -74,7 +75,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
             {[product.image, product.image, product.image].map((img, i) => (
               <div key={i} className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 border-2 cursor-pointer"
                 style={{ borderColor: i === 0 ? "var(--color-primary)" : "var(--color-border)" }}>
-                <Image src={img} alt="" width={80} height={80} className="object-cover w-full h-full" />
+                <Image src={img} alt="" width={80} height={80} unoptimized className="object-cover w-full h-full" />
               </div>
             ))}
           </div>

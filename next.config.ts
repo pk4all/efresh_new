@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "api-efresh-698528526600.australia-southeast2.run.app",
+      },
+      {
+        protocol: "https",
+        hostname: "egency.com.au",
+      },
     ],
   },
 };

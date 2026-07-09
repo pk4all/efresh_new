@@ -13,6 +13,23 @@ import {
   Apple,
   Box,
   Sparkles,
+  Cookie,
+  Refrigerator,
+  ChefHat,
+  ShoppingBag,
+  Home,
+  Flower2,
+  Snowflake,
+  Gift,
+  Activity,
+  PartyPopper,
+  Tv,
+  Dog,
+  Trees,
+  Pill,
+  Baby,
+  Beef,
+  Fish,
 } from "lucide-react";
 import { fetchCategories, fetchSubCategories } from "@/utils/api";
 
@@ -30,11 +47,28 @@ interface SubCategoryApiItem {
 
 const getCategoryIcon = (name: string) => {
   const lower = name.toLowerCase();
+  if (lower.includes("dried fruit") || lower.includes("nuts")) return Cookie;
   if (lower.includes("fruit")) return Apple;
   if (lower.includes("vegetable")) return Carrot;
+  if (lower.includes("fridge")) return Refrigerator;
+  if (lower.includes("deli")) return ChefHat;
+  if (lower.includes("bakery")) return Croissant;
+  if (lower.includes("groceries")) return ShoppingBag;
+  if (lower.includes("household")) return Home;
+  if (lower.includes("flowers")) return Flower2;
+  if (lower.includes("frozen")) return Snowflake;
+  if (lower.includes("christmas")) return Gift;
+  if (lower.includes("health food") || lower.includes("health & beauty")) return Activity;
+  if (lower.includes("party")) return PartyPopper;
+  if (lower.includes("appliance")) return Tv;
+  if (lower.includes("pet")) return Dog;
+  if (lower.includes("outdoor")) return Trees;
+  if (lower.includes("medical")) return Pill;
+  if (lower.includes("baby")) return Baby;
+  if (lower.includes("butcher")) return Beef;
+  if (lower.includes("seafood") || lower.includes("fish")) return Fish;
+  if (lower.includes("caf")) return Coffee;
   if (lower.includes("herb")) return Leaf;
-  if (lower.includes("bread")) return Croissant;
-  if (lower.includes("box")) return Box;
   if (lower.includes("special")) return Sparkles;
   if (lower.includes("add")) return Coffee;
   return Leaf;
@@ -69,12 +103,12 @@ export default function MegaNav() {
       try {
         setLoading(true);
         const [catsRes, subcatsRes] = await Promise.all([
-          fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test2" }),
-          fetchSubCategories({ limit: 50, offset: 0, vendor_id: "vendor_test2" }),
+          fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test3" }),
+          fetchSubCategories({ limit: 50, offset: 0, vendor_id: "vendor_test3" }),
         ]);
 
-        const cats = catsRes?.items || [];
-        const subcats = subcatsRes?.items || [];
+        const cats = catsRes?.data || [];
+        const subcats = subcatsRes?.data || [];
 
         setCategories(cats);
         setSubCategories(subcats);

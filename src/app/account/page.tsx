@@ -49,13 +49,14 @@ function AccountContent() {
           });
           if (res.ok) {
             const data = await res.json();
+            const profileData = data.data || data;
             setProfile({
-              name: data.name || "User",
-              email: data.email || "",
-              phone: data.contact || "",
-              address: data.suburb || "",
-              gender: data.gender || "",
-              dob: data.dob || "",
+              name: profileData.name || "User",
+              email: profileData.email || "",
+              phone: profileData.contact || "",
+              address: profileData.suburb || "",
+              gender: profileData.gender || "",
+              dob: profileData.dob || "",
             });
           } else {
             const errData = await res.json().catch(() => ({}));
@@ -110,7 +111,7 @@ function AccountContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        setAddresses(data || []);
+        setAddresses(data.data || data || []);
       } else {
         const errData = await res.json().catch(() => ({}));
         handleAuthError(errData.detail);
@@ -166,7 +167,8 @@ function AccountContent() {
       }
 
       const data = await response.json();
-      localStorage.setItem("name", data.name || profile.name);
+      const nameVal = data.data?.name || data.name || profile.name;
+      localStorage.setItem("name", nameVal);
       
       toast.success("Profile updated successfully!");
       window.dispatchEvent(new Event("storage"));

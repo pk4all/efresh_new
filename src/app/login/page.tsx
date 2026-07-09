@@ -30,7 +30,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: form.email,
           password: form.password,
-          vendor_id: "vendor_test2",
+          vendor_id: "vendor_test3",
         }),
       });
 
@@ -41,20 +41,23 @@ export default function LoginPage() {
       }
 
       const data = await response.json();
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("customer_id", String(data.customer_id));
+      const token = data.data?.access_token || data.access_token;
+      const customerId = data.data?.customer_id || data.customer_id;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("customer_id", String(customerId));
 
         // Fetch profile API for user details
         const profileResponse = await fetch(`${cleanBase}/profile`, {
           headers: {
-            "Authorization": `Bearer ${data.access_token}`,
+            "Authorization": `Bearer ${token}`,
           },
         });
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
-          if (profileData.name) {
-            localStorage.setItem("name", profileData.name);
+          if (profileData.data.name) {
+            localStorage.setItem("name", profileData.data.name);
           }
         }
       }

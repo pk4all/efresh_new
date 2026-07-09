@@ -20,7 +20,7 @@ export default function RegisterPage() {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
       const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-      
+
       const response = await fetch(`${cleanBase}/auth/register`, {
         method: "POST",
         headers: {
@@ -30,7 +30,7 @@ export default function RegisterPage() {
           name: form.name,
           email: form.email,
           password: form.password,
-          vendor_id: "vendor_test2",
+          vendor_id: "vendor_test3",
         }),
       });
 
@@ -41,14 +41,17 @@ export default function RegisterPage() {
       }
 
       const data = await response.json();
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("customer_id", String(data.customer_id));
+      const token = data.data?.access_token || data.access_token;
+      const customerId = data.data?.customer_id || data.customer_id;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("customer_id", String(customerId));
 
         // Fetch profile API for user details
         const profileResponse = await fetch(`${cleanBase}/profile`, {
           headers: {
-            "Authorization": `Bearer ${data.access_token}`,
+            "Authorization": `Bearer ${token}`,
           },
         });
         if (profileResponse.ok) {
@@ -165,9 +168,9 @@ export default function RegisterPage() {
               </span>
             </label>
 
-             <button type="submit" disabled={loading} className="btn-primary w-full py-3 justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-               {loading ? "Creating Account..." : "Create Account"} {!loading && <ArrowRight size={16} />}
-             </button>
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? "Creating Account..." : "Create Account"} {!loading && <ArrowRight size={16} />}
+            </button>
           </form>
 
           <p className="text-center text-sm mt-5" style={{ color: "var(--color-muted)" }}>

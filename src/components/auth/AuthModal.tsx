@@ -28,7 +28,7 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
       const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-      
+
       const response = await fetch(`${cleanBase}/auth/login`, {
         method: "POST",
         headers: {
@@ -37,7 +37,7 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
         body: JSON.stringify({
           email: loginForm.email,
           password: loginForm.password,
-          vendor_id: "vendor_test2",
+          vendor_id: "vendor_test3",
         }),
       });
 
@@ -48,20 +48,23 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
       }
 
       const data = await response.json();
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("customer_id", String(data.customer_id));
-        
+      const token = data.data?.access_token || data.access_token;
+      const customerId = data.data?.customer_id || data.customer_id;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("customer_id", String(customerId));
+
         // Fetch profile API for user details
         const profileResponse = await fetch(`${cleanBase}/profile`, {
           headers: {
-            "Authorization": `Bearer ${data.access_token}`,
+            "Authorization": `Bearer ${token}`,
           },
         });
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
-          if (profileData.name) {
-            localStorage.setItem("name", profileData.name);
+          if (profileData.data.name) {
+            localStorage.setItem("name", profileData.data.name);
           }
         }
       }
@@ -92,7 +95,7 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
           name: registerForm.name,
           email: registerForm.email,
           password: registerForm.password,
-          vendor_id: "vendor_test2",
+          vendor_id: "vendor_test3",
         }),
       });
 
@@ -103,14 +106,17 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
       }
 
       const data = await response.json();
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("customer_id", String(data.customer_id));
+      const token = data.data?.access_token || data.access_token;
+      const customerId = data.data?.customer_id || data.customer_id;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("customer_id", String(customerId));
 
         // Fetch profile API for user details
         const profileResponse = await fetch(`${cleanBase}/profile`, {
           headers: {
-            "Authorization": `Bearer ${data.access_token}`,
+            "Authorization": `Bearer ${token}`,
           },
         });
         if (profileResponse.ok) {
@@ -276,8 +282,8 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
                     </div>
                   </div>
 
-                  <button type="submit" className="btn-primary w-full py-3 mt-2 justify-center font-bold text-sm shadow-md shadow-[#0da487]/10 hover:shadow-lg transition-all">
-                    Sign In <ArrowRight size={16} />
+                  <button type="submit" disabled={loading} className="btn-primary w-full py-3 mt-2 justify-center font-bold text-sm shadow-md shadow-[#0da487]/10 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    {loading ? "Signing In..." : "Sign In"} {!loading && <ArrowRight size={16} />}
                   </button>
                 </form>
 

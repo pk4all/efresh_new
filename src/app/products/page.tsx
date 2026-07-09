@@ -4,8 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { SlidersHorizontal, Grid, List, ChevronDown, X } from "lucide-react";
 import ProductCard from "@/components/product/ProductCard";
-import { products } from "@/data/products";
-import { fetchCategories } from "@/utils/api";
+import { fetchCategories, fetchProducts, mapApiProductToProduct } from "@/utils/api";
+import { Product } from "@/types";
 
 const SORT_OPTIONS = [
   { value: "popular", label: "Most Popular" },
@@ -27,23 +27,27 @@ function ShopContent() {
 
   const [categories, setCategories] = useState<CategoryApiItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     initialCategory ? [initialCategory] : []
   );
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
-  const [minRating, setMinRating] = useState(0);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [sort, setSort] = useState("popular");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const PER_PAGE = 12;
 
   useEffect(() => {
     async function loadCategories() {
       try {
         setLoading(true);
-        const res = await fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test2" });
-        setCategories(res?.items || []);
+        const res = await fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test3" });
+        setCategories(res?.data || []);
       } catch (err) {
         console.error("Failed to load categories on shop page:", err);
       } finally {
@@ -53,15 +57,62 @@ function ShopContent() {
     loadCategories();
   }, []);
 
+  // Reset page to 1 and clear product list when search or category filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategories, searchQuery]);
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        if (page === 1) {
+          setProductsLoading(true);
+        } else {
+          setLoadingMore(true);
+        }
+
+        const catObj = selectedCategories.length > 0
+          ? categories.find((c) => c.name === selectedCategories[0])
+          : null;
+        const catId = catObj ? String(catObj.id) : undefined;
+
+        const res = await fetchProducts({
+          limit: 15,
+          page: page,
+          category_id: catId,
+          search: searchQuery || undefined,
+          vendor_id: "vendor_test3",
+        });
+
+        const items = res?.data || [];
+        const mapped = items.map(mapApiProductToProduct);
+
+        setDbProducts((prev) => (page === 1 ? mapped : [...prev, ...mapped]));
+
+        const totalPages = res?.pagination?.totalPages || 0;
+        setTotalProducts(res?.pagination?.total || 0);
+        setHasMore(page < totalPages);
+      } catch (err) {
+        console.error("Failed to load products on shop page:", err);
+      } finally {
+        setProductsLoading(false);
+        setLoadingMore(false);
+      }
+    }
+
+    if (categories.length > 0 || !loading) {
+      loadProducts();
+    }
+  }, [page, selectedCategories, searchQuery, categories, loading]);
+
   const toggleCategory = (catName: string) => {
     setSelectedCategories((prev) =>
       prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
     );
-    setPage(1);
   };
 
   const filtered = useMemo(() => {
-    let result = [...products];
+    let result = [...dbProducts];
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -83,7 +134,6 @@ function ShopContent() {
     result = result.filter(
       (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
     );
-    result = result.filter((p) => p.rating >= minRating);
 
     if (sort === "price-low") result.sort((a, b) => a.price - b.price);
     else if (sort === "price-high") result.sort((a, b) => b.price - a.price);
@@ -92,10 +142,9 @@ function ShopContent() {
     else result.sort((a, b) => b.reviewCount - a.reviewCount);
 
     return result;
-  }, [selectedCategories, priceRange, minRating, sort, searchQuery]);
+  }, [dbProducts, selectedCategories, priceRange, sort, searchQuery]);
 
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const paginated = filtered;
 
 
   const Sidebar = () => (
@@ -112,12 +161,12 @@ function ShopContent() {
             <span className="text-xs text-gray-400 font-medium">No categories</span>
           ) : (
             categories.map((cat) => {
-              const count = products.filter((p) => {
+              const count = dbProducts.filter((p) => {
                 const prodLower = p.category.toLowerCase();
                 const catLower = cat.name.toLowerCase();
                 return prodLower.includes(catLower) || catLower.includes(prodLower);
               }).length;
-              
+
               return (
                 <label key={cat.id} className="flex items-center gap-2 cursor-pointer group">
                   <input
@@ -153,7 +202,7 @@ function ShopContent() {
         <input
           type="range"
           min={0}
-          max={100}
+          max={1000}
           step={1}
           value={priceRange[1]}
           onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
@@ -162,33 +211,10 @@ function ShopContent() {
         />
       </div>
 
-      {/* Rating filter */}
-      <div>
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--color-dark)" }}>
-          Minimum Rating
-        </h3>
-        <div className="space-y-1.5">
-          {[4, 3, 2, 0].map((r) => (
-            <label key={r} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="rating"
-                checked={minRating === r}
-                onChange={() => setMinRating(r)}
-                style={{ accentColor: "var(--color-primary)" }}
-              />
-              <span className="text-sm" style={{ color: "var(--color-dark)" }}>
-                {r > 0 ? `${r}★ & up` : "All ratings"}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
       {/* Clear */}
-      {(selectedCategories.length > 0 || minRating > 0) && (
+      {(selectedCategories.length > 0) && (
         <button
-          onClick={() => { setSelectedCategories([]); setMinRating(0); setPriceRange([0, 100]); }}
+          onClick={() => { setSelectedCategories([]); setPriceRange([0, 1000]); }}
           className="flex items-center gap-1 text-xs font-semibold"
           style={{ color: "var(--color-danger)" }}
         >
@@ -217,7 +243,7 @@ function ShopContent() {
           {/* Toolbar */}
           <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-              {filtered.length} products found
+              {totalProducts} products found
             </p>
             <div className="flex items-center gap-2">
               {/* Mobile filter toggle */}
@@ -273,12 +299,18 @@ function ShopContent() {
           )}
 
           {/* Product grid */}
-          {paginated.length === 0 ? (
+          {productsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse bg-gray-100 rounded-2xl h-[280px]" />
+              ))}
+            </div>
+          ) : paginated.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-4xl mb-3">🛒</p>
               <p className="font-semibold text-gray-500">No products match your filters.</p>
               <button
-                onClick={() => { setSelectedCategories([]); setMinRating(0); }}
+                onClick={() => { setSelectedCategories([]); }}
                 className="mt-3 btn-outline text-sm"
               >
                 Clear filters
@@ -286,12 +318,12 @@ function ShopContent() {
             </div>
           ) : view === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {paginated.map((p) => <ProductCard key={p.id} product={p} />)}
+              {paginated.map((p, idx) => <ProductCard key={`${p.id}-${idx}`} product={p} />)}
             </div>
           ) : (
             <div className="space-y-3">
-              {paginated.map((product) => (
-                <div key={product.id} className="card flex gap-4 p-4">
+              {paginated.map((product, idx) => (
+                <div key={`${product.id}-${idx}`} className="card flex gap-4 p-4">
                   <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 relative">
                     <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                   </div>
@@ -311,23 +343,17 @@ function ShopContent() {
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-8">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i + 1)}
-                  className="w-9 h-9 rounded-sm text-sm font-semibold transition-all"
-                  style={{
-                    backgroundColor: page === i + 1 ? "var(--color-primary)" : "white",
-                    color: page === i + 1 ? "white" : "var(--color-dark)",
-                    border: `1.5px solid ${page === i + 1 ? "var(--color-primary)" : "var(--color-border)"}`,
-                  }}
-                >
-                  {i + 1}
-                </button>
-              ))}
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={productsLoading || loadingMore}
+                className="btn-primary px-8 py-3 rounded-full text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-primary)", color: "white" }}
+              >
+                {productsLoading || loadingMore ? "Loading..." : "Load More"}
+              </button>
             </div>
           )}
         </div>
