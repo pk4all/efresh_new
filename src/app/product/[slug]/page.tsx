@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -25,6 +25,13 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const openCart = useCartStore((s) => s.openCart);
   const toggleItem = useWishlistStore((s) => s.toggleItem);
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(product.id));
+
+  const setStoreProducts = useCartStore((s) => s.setProducts);
+  useEffect(() => {
+    if (product) {
+      setStoreProducts([product]);
+    }
+  }, [product, setStoreProducts]);
 
   const related = products
     .filter((p) => p.category === product.category && p.id !== product.id)

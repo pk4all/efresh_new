@@ -6,6 +6,7 @@ import { SlidersHorizontal, Grid, List, ChevronDown, X } from "lucide-react";
 import ProductCard from "@/components/product/ProductCard";
 import { fetchCategories, fetchProducts, mapApiProductToProduct } from "@/utils/api";
 import { Product } from "@/types";
+import { useCartStore } from "@/store/cartStore";
 
 const SORT_OPTIONS = [
   { value: "popular", label: "Most Popular" },
@@ -37,6 +38,11 @@ function ShopContent() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const setStoreProducts = useCartStore((s) => s.setProducts);
+  useEffect(() => {
+    setStoreProducts(dbProducts);
+  }, [dbProducts, setStoreProducts]);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     initialCategory ? [initialCategory] : []

@@ -7,7 +7,8 @@ import { useCartStore } from "@/store/cartStore";
 // import { products } from "@/data/products";
 import { toast } from "sonner";
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
-import { fetchProductsFromAgent } from "@/utils/api";
+import { fetchProductsFromAgent, mapApiProductToProduct } from "@/utils/api";
+import { Product } from "@/types";
 function VoiceNavigationInner() {
   const router = useRouter();
   const openCart = useCartStore((s) => s.openCart);
@@ -17,7 +18,12 @@ function VoiceNavigationInner() {
   const [textCommand, setTextCommand] = useState("");
   const [showPanel, setShowPanel] = useState(false);
   const [agentId, setAgentId] = useState<string>("agent_9601kx436kwwe6b8bfb6f08wqn9g");
-  const [products, setProducts] = useState<[]>([]);
+  const products = useCartStore((s) => s.products);
+  const setProducts = useCartStore((s) => s.setProducts);
+
+  useEffect(() => {
+    console.log(products, 'products updated');
+  }, [products]);
 
   useEffect(() => {
     startSession();
@@ -74,17 +80,17 @@ function VoiceNavigationInner() {
       searchProducts: async (params: { query: string }) => {
         const query = params.query || "";
         console.log('================query', query, params);
-        //router.push(`/products?q=${encodeURIComponent(query)}`);
-        const products = await fetchProductsFromAgent({ limit: 100, offset: 0, search: query });
-        console.log(products.data, 'product data');
-        setProducts(products.data);
+        const res = await fetchProductsFromAgent({ limit: 100, offset: 0, search: query });
+        const mapped = (res?.data || []).map(mapApiProductToProduct);
+        setProducts(mapped);
         toast.success(`Agent searched for "${query}"`);
         return `Searched for products matching "${query}"`;
       },
       addProductToCart: async (params: { productName: string }) => {
         const productName = params.productName || "";
         const searchName = productName.toLowerCase().trim();
-        const matchedProduct: any = products.find((p: any) =>
+        const liveProducts = useCartStore.getState().products;
+        const matchedProduct = liveProducts.find((p) =>
           p.name.toLowerCase().includes(searchName)
         );
 
@@ -108,9 +114,10 @@ function VoiceNavigationInner() {
         window.scrollBy({ top: scrollAmount, behavior: "smooth" });
         return `Successfully scrolled ${direction}`;
       },
-      loadMoreProducts: async () => {
-        const products = await fetchProductsFromAgent({ limit: 100, offset: 0, search: '' });
-        setProducts(products.data);
+      loadMoreProducts: async (params: { page: number }) => {
+        const res = await fetchProductsFromAgent({ limit: 15, offset: 0, search: '', page: params?.page || 2 });
+        const mapped = (res?.data || []).map(mapApiProductToProduct);
+        setProducts(mapped);
         toast.success(`Agent loaded more products`);
         return `Successfully loaded more products`;
       },
@@ -168,7 +175,8 @@ function VoiceNavigationInner() {
       const match = command.match(/^add\s+(.+?)\s+to\s+(?:the\s+)?cart$/);
       if (match && match[1]) {
         const searchName = match[1].toLowerCase().trim();
-        const matchedProduct: any = products.find((p: any) => p.name.toLowerCase().includes(searchName));
+        const liveProducts = useCartStore.getState().products;
+        const matchedProduct = liveProducts.find((p) => p.name.toLowerCase().includes(searchName));
         if (matchedProduct) {
           addItem(matchedProduct, 1);
           toast.success(`Added ${matchedProduct.name} to Cart`);

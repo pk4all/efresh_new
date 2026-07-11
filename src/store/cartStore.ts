@@ -6,6 +6,8 @@ interface CartStore {
   items: CartItem[];
   isOpen: boolean;
   couponCode: string | null;
+  products: Product[];
+  setProducts: (products: Product[]) => void;
   addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -26,6 +28,8 @@ export const useCartStore = create<CartStore>()(
       items: [],
       isOpen: false,
       couponCode: null,
+      products: [],
+      setProducts: (products) => set({ products }),
 
       addItem: (product, quantity = 1) => {
         set((state) => {
@@ -90,6 +94,8 @@ export const useCartStore = create<CartStore>()(
         if (code === "ORGANIC3") return subtotal * 0.15;
         return 0;
       },
+
+
     }),
     { name: "ecart-cart-storage" }
   )
