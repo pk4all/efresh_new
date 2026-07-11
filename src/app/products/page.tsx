@@ -32,6 +32,11 @@ function ShopContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     initialCategory ? [initialCategory] : []
@@ -344,7 +349,7 @@ function ShopContent() {
           )}
 
           {/* Load More Button */}
-          {hasMore && (
+          {mounted && hasMore && (
             <div className="flex justify-center mt-8">
               <button
                 onClick={() => setPage((p) => p + 1)}

@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, MicOff, Sparkles, X, ChevronDown, ShoppingBag, Search, HelpCircle, Keyboard, Send } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { products } from "@/data/products";
+// import { products } from "@/data/products";
 import { toast } from "sonner";
-import { useConversationControls, useConversationStatus, useConversationClientTool, ConversationProvider } from "@elevenlabs/react";
-
+import { ConversationProvider, useConversation } from "@elevenlabs/react";
+import { fetchProductsFromAgent } from "@/utils/api";
 function VoiceNavigationInner() {
   const router = useRouter();
   const openCart = useCartStore((s) => s.openCart);
@@ -16,14 +16,110 @@ function VoiceNavigationInner() {
 
   const [textCommand, setTextCommand] = useState("");
   const [showPanel, setShowPanel] = useState(false);
-  const [agentId, setAgentId] = useState<string>("");
+  const [agentId, setAgentId] = useState<string>("agent_9601kx436kwwe6b8bfb6f08wqn9g");
+  const [products, setProducts] = useState<[]>([]);
 
-  const { startSession, endSession } = useConversationControls();
-  const { status } = useConversationStatus();
+  useEffect(() => {
+    startSession();
+    return () => {
+      endSession();
+    };
+  }, []);
+
+  const { startSession, endSession, status } = useConversation({
+    onConnect: () => {
+      console.log("Conversation connected");
+    },
+    onDisconnect: () => {
+      console.log("Conversation disconnected");
+    },
+    onError: (error) => {
+      console.error("Conversation error:", error);
+      toast.error("Agent encountered an error");
+    },
+    clientTools: {
+      navigate: async (params: { page?: string; url?: string; path?: string; destination?: string }) => {
+        console.log(params, "navigate params");
+        const page = params.page || params.url || params.path || params.destination || "";
+        const normalizedPage = page.toLowerCase().trim();
+
+        if (normalizedPage.includes("home") || normalizedPage === "/" || normalizedPage === "index") {
+          router.push("/");
+          toast.success("Agent navigated to Home");
+          return "Navigated to home page";
+        } else if (normalizedPage.includes("shop") || normalizedPage.includes("product") || normalizedPage.includes("store") || normalizedPage === "/products") {
+          router.push("/products");
+          toast.success("Agent navigated to Shop");
+          return "Navigated to shop page";
+        } else if (normalizedPage.includes("cart") || normalizedPage === "/cart") {
+          //openCart();
+          router.push("/cart");
+          toast.success("Agent opened cart drawer");
+          return "Opened shopping cart";
+        } else if (normalizedPage.includes("checkout") || normalizedPage === "/checkout") {
+          router.push("/checkout");
+          toast.success("Agent navigated to Checkout");
+          return "Navigated to checkout page";
+        } else if (normalizedPage.includes("wishlist") || normalizedPage === "/wishlist") {
+          router.push("/wishlist");
+          toast.success("Agent navigated to Wishlist");
+          return "Navigated to wishlist page";
+        } else if (normalizedPage.includes("account") || normalizedPage.includes("profile") || normalizedPage === "/account") {
+          router.push("/account");
+          toast.success("Agent navigated to Account");
+          return "Navigated to account page";
+        }
+        return `Page ${page} not recognized. Choose home, shop, cart, checkout, wishlist, or account.`;
+      },
+      searchProducts: async (params: { query: string }) => {
+        const query = params.query || "";
+        console.log('================query', query, params);
+        //router.push(`/products?q=${encodeURIComponent(query)}`);
+        const products = await fetchProductsFromAgent({ limit: 100, offset: 0, search: query });
+        console.log(products.data, 'product data');
+        setProducts(products.data);
+        toast.success(`Agent searched for "${query}"`);
+        return `Searched for products matching "${query}"`;
+      },
+      addProductToCart: async (params: { productName: string }) => {
+        const productName = params.productName || "";
+        const searchName = productName.toLowerCase().trim();
+        const matchedProduct: any = products.find((p: any) =>
+          p.name.toLowerCase().includes(searchName)
+        );
+
+        if (matchedProduct) {
+          addItem(matchedProduct, 1);
+          toast.success(`Agent added ${matchedProduct.name} to Cart`);
+          return `Successfully added ${matchedProduct.name} to cart`;
+        } else {
+          toast.error(`Agent couldn't find "${productName}"`);
+          return `Failed: Product "${productName}" not found in our catalog`;
+        }
+      },
+      clearCart: async () => {
+        clearCartStore();
+        toast.info("Agent cleared the cart");
+        return "Successfully cleared all items from the cart";
+      },
+      scroll: async (params: { direction: string }) => {
+        const direction = params.direction || "";
+        const scrollAmount = direction === "down" ? window.innerHeight * 0.6 : -window.innerHeight * 0.6;
+        window.scrollBy({ top: scrollAmount, behavior: "smooth" });
+        return `Successfully scrolled ${direction}`;
+      },
+      loadMoreProducts: async () => {
+        const products = await fetchProductsFromAgent({ limit: 100, offset: 0, search: '' });
+        setProducts(products.data);
+        toast.success(`Agent loaded more products`);
+        return `Successfully loaded more products`;
+      },
+    }
+  });
 
   // Load Agent ID from environment variables
   useEffect(() => {
-    const id = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+    const id = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || 'agent_9601kx436kwwe6b8bfb6f08wqn9g';
     if (id) {
       setAgentId(id);
     }
@@ -31,80 +127,6 @@ function VoiceNavigationInner() {
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
-
-  // 1. Client-side Navigation Tool
-  useConversationClientTool("navigate", (params: Record<string, any>) => {
-    const page = (params.page || params.url || params.path || params.destination || "") as string;
-    const normalizedPage = page.toLowerCase().trim();
-
-    if (normalizedPage.includes("home") || normalizedPage === "/" || normalizedPage === "index") {
-      router.push("/");
-      toast.success("Agent navigated to Home");
-      return "Navigated to home page";
-    } else if (normalizedPage.includes("shop") || normalizedPage.includes("product") || normalizedPage.includes("store") || normalizedPage === "/products") {
-      router.push("/products");
-      toast.success("Agent navigated to Shop");
-      return "Navigated to shop page";
-    } else if (normalizedPage.includes("cart") || normalizedPage === "/cart") {
-      openCart();
-      toast.success("Agent opened cart drawer");
-      return "Opened shopping cart";
-    } else if (normalizedPage.includes("checkout") || normalizedPage === "/checkout") {
-      router.push("/checkout");
-      toast.success("Agent navigated to Checkout");
-      return "Navigated to checkout page";
-    } else if (normalizedPage.includes("wishlist") || normalizedPage === "/wishlist") {
-      router.push("/wishlist");
-      toast.success("Agent navigated to Wishlist");
-      return "Navigated to wishlist page";
-    } else if (normalizedPage.includes("account") || normalizedPage.includes("profile") || normalizedPage === "/account") {
-      router.push("/account");
-      toast.success("Agent navigated to Account");
-      return "Navigated to account page";
-    }
-    return `Page ${page} not recognized. Choose home, shop, cart, checkout, wishlist, or account.`;
-  });
-
-  // 2. Client-side Search Tool
-  useConversationClientTool("searchProducts", (params: Record<string, any>) => {
-    const query = (params.query as string) || "";
-    router.push(`/products?q=${encodeURIComponent(query)}`);
-    toast.success(`Agent searched for "${query}"`);
-    return `Searched for products matching "${query}"`;
-  });
-
-  // 3. Client-side Add Product to Cart Tool
-  useConversationClientTool("addProductToCart", (params: Record<string, any>) => {
-    const productName = (params.productName as string) || "";
-    const searchName = productName.toLowerCase().trim();
-    const matchedProduct = products.find((p) =>
-      p.name.toLowerCase().includes(searchName)
-    );
-
-    if (matchedProduct) {
-      addItem(matchedProduct, 1);
-      toast.success(`Agent added ${matchedProduct.name} to Cart`);
-      return `Successfully added ${matchedProduct.name} to cart`;
-    } else {
-      toast.error(`Agent couldn't find "${productName}"`);
-      return `Failed: Product "${productName}" not found in our catalog`;
-    }
-  });
-
-  // 4. Client-side Clear Cart Tool
-  useConversationClientTool("clearCart", () => {
-    clearCartStore();
-    toast.info("Agent cleared the cart");
-    return "Successfully cleared all items from the cart";
-  });
-
-  // 5. Client-side Viewport Scroll Tool
-  useConversationClientTool("scroll", (params: Record<string, any>) => {
-    const direction = (params.direction as string) || "";
-    const scrollAmount = direction === "down" ? window.innerHeight * 0.6 : -window.innerHeight * 0.6;
-    window.scrollBy({ top: scrollAmount, behavior: "smooth" });
-    return `Successfully scrolled ${direction}`;
-  });
 
   // Text-input fallback command interpreter
   const handleTextSubmit = (e: React.FormEvent) => {
@@ -146,7 +168,7 @@ function VoiceNavigationInner() {
       const match = command.match(/^add\s+(.+?)\s+to\s+(?:the\s+)?cart$/);
       if (match && match[1]) {
         const searchName = match[1].toLowerCase().trim();
-        const matchedProduct = products.find((p) => p.name.toLowerCase().includes(searchName));
+        const matchedProduct: any = products.find((p: any) => p.name.toLowerCase().includes(searchName));
         if (matchedProduct) {
           addItem(matchedProduct, 1);
           toast.success(`Added ${matchedProduct.name} to Cart`);

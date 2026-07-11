@@ -86,6 +86,33 @@ export async function fetchProducts(params: GetProductsParams = {}) {
   return response.json();
 }
 
+export async function fetchProductsFromAgent(params: GetProductsParams = {}) {
+  const cleanBase = getBaseUrl();
+  const queryParams = new URLSearchParams();
+  queryParams.append("limit", String(params.limit ?? 20));
+  if (params.page !== undefined) {
+    queryParams.append("page", String(params.page));
+  } else {
+    queryParams.append("offset", String(params.offset ?? 0));
+  }
+  queryParams.append("vendor_id", params.vendor_id ?? "vendor_test3");
+  if (params.category_id) {
+    queryParams.append("category_id", params.category_id);
+  }
+  if (params.search) {
+    queryParams.append("search", params.search);
+  }
+
+  const url = `${cleanBase}/products?${queryParams.toString()}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch products: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 /**
  * Maps storefront API product objects to the frontend Product model.
  */

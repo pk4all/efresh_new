@@ -62,8 +62,8 @@ export default function NewArrivalsSection() {
         <div className="text-center py-10 text-gray-500">No products found</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+          {products.map((product, index) => (
+            <ProductCard key={`${product.id}-${index}`} product={product} />
           ))}
         </div>
       )}

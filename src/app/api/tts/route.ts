@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const { text } = await req.json();
-    const apiKey = process.env.VOICE_AI_KEY;
+    const apiKey = process.env.VOICE_AI_KEY || 'f22ac8e5743c6e0d8149a9e00e2e779f7ad8cb8f07b5163cdd94ef18a952a38c';
 
     if (!apiKey) {
       return NextResponse.json(
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     }
 
     // ElevenLabs Rachel Voice ID
-    const voiceId = "DYkrAHD8iwork3YSUBbs";
+    const voiceId = "pg7Nd5b8Y3tnfSndq5lh";
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
       {
