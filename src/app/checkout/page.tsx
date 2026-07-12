@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { CheckCircle, CreditCard, Smartphone, DollarSign } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
@@ -20,14 +20,142 @@ export default function CheckoutPage() {
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
-    address: "", city: "", zip: "", country: "United States",
+    address: "", city: "", zip: "", country: "Australia",
   });
+
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | string | null>(null);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [newAddressForm, setNewAddressForm] = useState({
+    label: "Home",
+    main_address: "",
+    apartment: "",
+    main_city: "",
+    main_state: "",
+    zip_code: "",
+    country: "Australia",
+    default_ship: false,
+  });
+
+  // Fetch profile and addresses
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoadingAddresses(false);
+      setShowNewAddressForm(true);
+      return;
+    }
+
+    const loadCheckoutData = async () => {
+      try {
+        setLoadingAddresses(true);
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
+        const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+
+        // Fetch Profile to prefill contact info
+        const profileRes = await fetch(`${cleanBase}/profile`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          const p = profileData.data || profileData;
+          const [first = "", last = ""] = (p.name || "").split(" ");
+          setForm(prev => ({
+            ...prev,
+            firstName: prev.firstName || first,
+            lastName: prev.lastName || last,
+            email: prev.email || p.email || "",
+            phone: prev.phone || p.contact || "",
+          }));
+        }
+
+        // Fetch Saved Addresses
+        const addrRes = await fetch(`${cleanBase}/addresses`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (addrRes.ok) {
+          const addrData = await addrRes.json();
+          const list = addrData.data || addrData || [];
+          setAddresses(list);
+
+          // Find default address
+          const def = list.find((a: any) => a.default_ship === 1);
+          if (def) {
+            setSelectedAddressId(def.id);
+            setForm(prev => ({
+              ...prev,
+              address: def.main_address || "",
+              city: def.main_city || "",
+              zip: def.zip_code || "",
+              country: def.country || "Australia",
+            }));
+          } else if (list.length > 0) {
+            setSelectedAddressId(list[0].id);
+            setForm(prev => ({
+              ...prev,
+              address: list[0].main_address || "",
+              city: list[0].main_city || "",
+              zip: list[0].zip_code || "",
+              country: list[0].country || "Australia",
+            }));
+          } else {
+            setShowNewAddressForm(true);
+            setSelectedAddressId("new");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load checkout data:", err);
+      } finally {
+        setLoadingAddresses(false);
+      }
+    };
+
+    loadCheckoutData();
+  }, []);
 
   const update = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // If new address is filled and user is logged in, save it to their account
+    const token = localStorage.getItem("token");
+    if (token && showNewAddressForm) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
+        const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+        const res = await fetch(`${cleanBase}/addresses`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            address: newAddressForm.label || "Other",
+            main_address: newAddressForm.main_address,
+            apartment: newAddressForm.apartment || null,
+            main_city: newAddressForm.main_city,
+            main_state: newAddressForm.main_state,
+            zip_code: newAddressForm.zip_code,
+            country: newAddressForm.country || "Australia",
+            default_ship: newAddressForm.default_ship ? 1 : 0,
+            billing_deliveryAddress: 3,
+            notes: "",
+            latitude: "0",
+            longitude: "0",
+          }),
+        });
+
+        if (res.ok) {
+          toast.success("New address saved to your account!");
+        }
+      } catch (err) {
+        console.error("Failed to save new address:", err);
+      }
+    }
+
     setSubmitted(true);
     clearCart();
   };
@@ -69,7 +197,7 @@ export default function CheckoutPage() {
               <h2 className="font-bold text-base mb-4" style={{ color: "var(--color-dark)" }}>
                 Shipping Information
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 {[
                   { label: "First Name", key: "firstName", placeholder: "John" },
                   { label: "Last Name", key: "lastName", placeholder: "Doe" },
@@ -89,41 +217,177 @@ export default function CheckoutPage() {
                     />
                   </div>
                 ))}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                    Address *
-                  </label>
-                  <input required placeholder="123 Main St, Apt 4B"
-                    value={form.address} onChange={update("address")}
-                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)" }} />
-                </div>
-                {[
-                  { label: "City", key: "city", placeholder: "New York" },
-                  { label: "ZIP Code", key: "zip", placeholder: "10001" },
-                ].map(({ label, key, placeholder }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      {label} *
-                    </label>
-                    <input required placeholder={placeholder}
-                      value={form[key as keyof typeof form]}
-                      onChange={update(key as keyof typeof form)}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }} />
-                  </div>
-                ))}
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>Country *</label>
-                  <select required value={form.country} onChange={update("country")}
-                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)" }}>
-                    {["United States", "United Kingdom", "Canada", "Australia", "India"].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
+
+              {/* Address List & Selection */}
+              {loadingAddresses ? (
+                <div className="py-4 text-center text-sm text-gray-400">Loading saved addresses...</div>
+              ) : (
+                <div className="mb-5">
+                  <label className="block text-xs font-semibold mb-2" style={{ color: "var(--color-dark)" }}>
+                    Select Shipping Address *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    {addresses.map((addr) => (
+                      <div
+                        key={addr.id}
+                        onClick={() => {
+                          setSelectedAddressId(addr.id);
+                          setShowNewAddressForm(false);
+                          setForm(prev => ({
+                            ...prev,
+                            address: addr.main_address || "",
+                            city: addr.main_city || "",
+                            zip: addr.zip_code || "",
+                            country: addr.country || "Australia",
+                          }));
+                        }}
+                        className="p-3.5 rounded-xl border-2 cursor-pointer transition-all hover:border-[#0da487]/50"
+                        style={{
+                          borderColor: selectedAddressId === addr.id && !showNewAddressForm ? "var(--color-primary)" : "var(--color-border)",
+                          backgroundColor: selectedAddressId === addr.id && !showNewAddressForm ? "var(--color-primary-light)" : "white",
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-sm" style={{ color: "var(--color-dark)" }}>
+                            {addr.address || "Address"}
+                          </span>
+                          {addr.default_ship === 1 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0da487]/10 text-[#0da487] font-semibold">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 line-clamp-2">
+                          {addr.apartment ? `${addr.apartment}, ` : ""}{addr.main_address}, {addr.main_city}, {addr.main_state} {addr.zip_code}, {addr.country}
+                        </p>
+                      </div>
+                    ))}
+
+                    <div
+                      onClick={() => {
+                        setSelectedAddressId("new");
+                        setShowNewAddressForm(true);
+                      }}
+                      className="p-3.5 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center text-center transition-all hover:border-[#0da487]/50"
+                      style={{
+                        borderColor: showNewAddressForm ? "var(--color-primary)" : "var(--color-border)",
+                        backgroundColor: showNewAddressForm ? "var(--color-primary-light)" : "white",
+                      }}
+                    >
+                      <span className="font-bold text-sm text-[#0da487]">+ Add New Address</span>
+                      <span className="text-[10px] text-gray-400 mt-1">Ship to a different location</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add New Address Fields */}
+              {showNewAddressForm && (
+                <div className="border-t pt-4 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ borderColor: "var(--color-border)" }}>
+                  <div className="sm:col-span-2">
+                    <h3 className="font-bold text-sm text-gray-700">New Address Details</h3>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      Address Label (e.g. Home, Work) *
+                    </label>
+                    <input
+                      type="text" required placeholder="e.g. Home, Work"
+                      value={newAddressForm.label}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, label: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      Street Address *
+                    </label>
+                    <input
+                      type="text" required placeholder="123 Main St"
+                      value={newAddressForm.main_address}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_address: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      Apartment, Suite, etc. (Optional)
+                    </label>
+                    <input
+                      type="text" placeholder="Apt 4B"
+                      value={newAddressForm.apartment}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, apartment: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      City *
+                    </label>
+                    <input
+                      type="text" required placeholder="New York"
+                      value={newAddressForm.main_city}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_city: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      State *
+                    </label>
+                    <input
+                      type="text" required placeholder="NY"
+                      value={newAddressForm.main_state}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_state: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      ZIP / Postal Code *
+                    </label>
+                    <input
+                      type="text" required placeholder="10001"
+                      value={newAddressForm.zip_code}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, zip_code: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                      Country *
+                    </label>
+                    <select
+                      required value={newAddressForm.country}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, country: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ borderColor: "var(--color-border)" }}
+                    >
+                      {["Australia", "United States", "United Kingdom", "Canada", "India"].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2 flex items-center gap-2 mt-1">
+                    <input
+                      type="checkbox" id="save-addr"
+                      checked={newAddressForm.default_ship}
+                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, default_ship: e.target.checked }))}
+                      className="rounded accent-[#0da487]"
+                    />
+                    <label htmlFor="save-addr" className="text-xs text-gray-600 font-medium cursor-pointer">
+                      Set as default shipping address
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Payment */}
