@@ -61,6 +61,9 @@ export default function Header() {
       const name = localStorage.getItem("name");
       setIsLoggedIn(!!token);
       setUserName(name || "Guest");
+      if (token) {
+        useCartStore.getState().syncCartWithDb();
+      }
     };
 
     checkAuth();
