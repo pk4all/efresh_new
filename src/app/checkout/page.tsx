@@ -18,11 +18,9 @@ export default function CheckoutPage() {
 
   const [payment, setPayment] = useState("card");
   const [submitted, setSubmitted] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     address: "", city: "", zip: "", country: "Australia",
@@ -43,8 +41,19 @@ export default function CheckoutPage() {
     default_ship: false,
   });
 
-  // Fetch profile and addresses
+  // Fetch profile, addresses and check Stripe status parameters
   useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("status") === "success") {
+        setSuccess(true);
+        clearCart();
+      } else if (params.get("status") === "cancel") {
+        toast.error("Payment session was cancelled. Please try again.");
+      }
+    }
+
     const token = localStorage.getItem("token");
     if (!token) {
       setLoadingAddresses(false);
@@ -125,9 +134,21 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // If new address is filled and user is logged in, save it to their account
     const token = localStorage.getItem("token");
-    if (token && showNewAddressForm) {
+    if (!token) {
+      toast.error("Please login to proceed to checkout");
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error("Your cart is empty");
+      return;
+    }
+
+    let finalAddressId = selectedAddressId;
+
+    // If new address is filled, save it to their account
+    if (showNewAddressForm) {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
         const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
@@ -154,6 +175,9 @@ export default function CheckoutPage() {
         });
 
         if (res.ok) {
+          const body = await res.json();
+          const newAddr = body.data || body;
+          finalAddressId = newAddr.id;
           toast.success("New address saved to your account!");
         }
       } catch (err) {
@@ -161,8 +185,47 @@ export default function CheckoutPage() {
       }
     }
 
-    setSubmitted(true);
-    clearCart();
+    // Call storefront-checkout API
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
+      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+
+      const checkoutPayload = {
+        address_id: finalAddressId && finalAddressId !== "new" ? Number(finalAddressId) : null,
+        address: showNewAddressForm ? `${newAddressForm.main_address}, ${newAddressForm.main_city}, ${newAddressForm.main_state} ${newAddressForm.zip_code}` : form.address,
+        zip_code: showNewAddressForm ? newAddressForm.zip_code : form.zip,
+        success_url: `${window.location.origin}/checkout?status=success`,
+        cancel_url: `${window.location.origin}/checkout?status=cancel`,
+        notes: "Deliver during shifts",
+      };
+
+      const checkoutRes = await fetch(`${cleanBase}/checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(checkoutPayload),
+      });
+
+      if (checkoutRes.ok) {
+        const body = await checkoutRes.json();
+        const data = body.data || body;
+        if (data.checkout_url) {
+          toast.loading("Redirecting to payment gateway...");
+          window.location.href = data.checkout_url;
+        } else {
+          toast.error("Checkout session created but no URL returned.");
+        }
+      } else {
+        const errBody = await checkoutRes.json().catch(() => ({}));
+        const message = errBody.detail || errBody.message || "Checkout validation failed";
+        toast.error(typeof message === "string" ? message : JSON.stringify(message));
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      toast.error("Failed to process checkout. Please try again.");
+    }
   };
 
   const discount = useCartStore((s) => s.getDiscount());
@@ -177,7 +240,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (submitted) {
+  if (success || submitted) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
         <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
@@ -188,10 +251,10 @@ export default function CheckoutPage() {
           Order Placed! 🎉
         </h1>
         <p className="text-sm mb-2" style={{ color: "var(--color-muted)" }}>
-          Thank you, {form.firstName}! Your order has been confirmed and will be delivered soon.
+          Thank you! Your order has been confirmed and is being processed.
         </p>
         <p className="text-xs mb-6" style={{ color: "var(--color-muted)" }}>
-          Confirmation sent to <strong>{form.email}</strong>
+          You will receive updates about your delivery status shortly.
         </p>
         <a href="/" className="btn-primary inline-flex">Back to Home</a>
       </div>
