@@ -21,18 +21,6 @@ function VoiceNavigationInner() {
   const products = useCartStore((s) => s.products);
   const setProducts = useCartStore((s) => s.setProducts);
 
-  useEffect(() => {
-    console.log(products, 'products updated');
-  }, [products]);
-
-  useEffect(() => {
-    const id = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "agent_9601kx436kwwe6b8bfb6f08wqn9g";
-    startSession({ agentId: id });
-    return () => {
-      endSession();
-    };
-  }, []);
-
   const { startSession, endSession, status } = useConversation({
     onConnect: () => {
       console.log("Conversation connected");
@@ -124,6 +112,17 @@ function VoiceNavigationInner() {
       },
     }
   });
+
+  useEffect(() => {
+    console.log(products, 'products updated');
+  }, [products]);
+
+  useEffect(() => {
+    return () => {
+      endSession();
+    };
+  }, [endSession]);
+
 
 
 
