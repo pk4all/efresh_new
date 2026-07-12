@@ -18,6 +18,11 @@ export default function CheckoutPage() {
 
   const [payment, setPayment] = useState("card");
   const [submitted, setSubmitted] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     address: "", city: "", zip: "", country: "Australia",
@@ -163,6 +168,14 @@ export default function CheckoutPage() {
   const discount = useCartStore((s) => s.getDiscount());
   const delivery = subtotal > 50 ? 0 : 4.99;
   const total = subtotal - discount + delivery;
+
+  if (!mounted) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center text-sm text-gray-500">
+        Loading checkout details...
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
