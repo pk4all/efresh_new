@@ -17,7 +17,7 @@ function VoiceNavigationInner() {
 
   const [textCommand, setTextCommand] = useState("");
   const [showPanel, setShowPanel] = useState(false);
-  const [agentId, setAgentId] = useState<string>("agent_9601kx436kwwe6b8bfb6f08wqn9g");
+  const [agentId, setAgentId] = useState<string>(process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "agent_9601kx436kwwe6b8bfb6f08wqn9g");
   const products = useCartStore((s) => s.products);
   const setProducts = useCartStore((s) => s.setProducts);
 
@@ -26,7 +26,8 @@ function VoiceNavigationInner() {
   }, [products]);
 
   useEffect(() => {
-    startSession();
+    const id = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "agent_9601kx436kwwe6b8bfb6f08wqn9g";
+    startSession({ agentId: id });
     return () => {
       endSession();
     };
@@ -124,13 +125,7 @@ function VoiceNavigationInner() {
     }
   });
 
-  // Load Agent ID from environment variables
-  useEffect(() => {
-    const id = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || 'agent_9601kx436kwwe6b8bfb6f08wqn9g';
-    if (id) {
-      setAgentId(id);
-    }
-  }, []);
+
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
