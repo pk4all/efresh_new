@@ -13,6 +13,7 @@ function VoiceNavigationInner() {
   const router = useRouter();
   const openCart = useCartStore((s) => s.openCart);
   const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
   const clearCartStore = useCartStore((s) => s.clearCart);
 
   const [textCommand, setTextCommand] = useState("");
@@ -88,6 +89,22 @@ function VoiceNavigationInner() {
           addItem(matchedProduct, quantity || 1);
           toast.success(`Agent added ${matchedProduct.name} to Cart`);
           return `Successfully added ${matchedProduct.name} to cart`;
+        } else {
+          toast.error(`Agent couldn't find "${productName}"`);
+          return `Failed: Product "${productName}" not found in our catalog`;
+        }
+      },
+      removeProductToCart: async (params: { productName: string, quantity: number }) => {
+        const productName = params.productName || "";
+        const searchName = productName.toLowerCase().trim();
+        const liveProducts = useCartStore.getState().products;
+        const matchedProduct = liveProducts.find((p) =>
+          p.name.toLowerCase().includes(searchName)
+        );
+        if (matchedProduct) {
+          removeItem(matchedProduct.id);
+          toast.success(`Agent removed ${matchedProduct.name} from Cart`);
+          return `Successfully removed ${matchedProduct.name} from cart`;
         } else {
           toast.error(`Agent couldn't find "${productName}"`);
           return `Failed: Product "${productName}" not found in our catalog`;

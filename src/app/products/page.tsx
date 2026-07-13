@@ -268,11 +268,11 @@ function ShopContent() {
 
       <div className="flex gap-6">
         {/* Desktop Sidebar */}
-        <div className="hidden lg:block w-56 flex-shrink-0">
+        {/* <div className="hidden lg:block w-56 flex-shrink-0">
           <div className="card p-5 sticky top-24">
             <Sidebar />
           </div>
-        </div>
+        </div> */}
 
         {/* Main */}
         <div className="flex-1">
@@ -281,7 +281,6 @@ function ShopContent() {
             <p className="text-sm" style={{ color: "var(--color-muted)" }}>
               {totalProducts} products found
             </p>
-            <div className="flex items-center gap-2">
               {/* Mobile filter toggle */}
               <button
                 className="lg:hidden flex items-center gap-1.5 text-sm font-medium border px-3 py-2 rounded-sm"
@@ -291,40 +290,6 @@ function ShopContent() {
                 <SlidersHorizontal size={14} />
                 Filters
               </button>
-
-              {/* Sort */}
-              <div className="relative">
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  className="border rounded-sm px-3 py-2 text-sm outline-none appearance-none pr-8"
-                  style={{ borderColor: "var(--color-border)", color: "var(--color-dark)" }}
-                >
-                  {SORT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              </div>
-
-              {/* View toggle */}
-              <div className="flex border rounded-sm overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
-                <button
-                  className="p-2 transition-colors"
-                  style={{ backgroundColor: view === "grid" ? "var(--color-primary)" : "white" }}
-                  onClick={() => setView("grid")}
-                >
-                  <Grid size={14} className={view === "grid" ? "text-white" : "text-gray-400"} />
-                </button>
-                <button
-                  className="p-2 transition-colors"
-                  style={{ backgroundColor: view === "list" ? "var(--color-primary)" : "white" }}
-                  onClick={() => setView("list")}
-                >
-                  <List size={14} className={view === "list" ? "text-white" : "text-gray-400"} />
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Mobile sidebar */}
