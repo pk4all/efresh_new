@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "egency.com.au",
       },
+      {
+        protocol: "http",
+        hostname: "egency.com.au",
+      },
     ],
   },
 };
