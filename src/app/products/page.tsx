@@ -268,11 +268,11 @@ function ShopContent() {
 
       <div className="flex gap-6">
         {/* Desktop Sidebar */}
-        {/* <div className="hidden lg:block w-56 flex-shrink-0">
+        <div className="hidden lg:block w-56 flex-shrink-0">
           <div className="card p-5 sticky top-24">
             <Sidebar />
           </div>
-        </div> */}
+        </div>
 
         {/* Main */}
         <div className="flex-1">
@@ -281,15 +281,15 @@ function ShopContent() {
             <p className="text-sm" style={{ color: "var(--color-muted)" }}>
               {totalProducts} products found
             </p>
-              {/* Mobile filter toggle */}
-              <button
-                className="lg:hidden flex items-center gap-1.5 text-sm font-medium border px-3 py-2 rounded-sm"
-                style={{ borderColor: "var(--color-border)" }}
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                <SlidersHorizontal size={14} />
-                Filters
-              </button>
+            {/* Mobile filter toggle */}
+            <button
+              className="lg:hidden flex items-center gap-1.5 text-sm font-medium border px-3 py-2 rounded-sm"
+              style={{ borderColor: "var(--color-border)" }}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <SlidersHorizontal size={14} />
+              Filters
+            </button>
           </div>
 
           {/* Mobile sidebar */}
