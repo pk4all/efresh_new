@@ -75,8 +75,9 @@ function VoiceNavigationInner() {
         toast.success(`Agent searched for "${query}"`);
         return `Searched for products matching "${query}"`;
       },
-      addProductToCart: async (params: { productName: string }) => {
+      addProductToCart: async (params: { productName: string, quantity: number }) => {
         const productName = params.productName || "";
+        const quantity = params.quantity || 1;
         const searchName = productName.toLowerCase().trim();
         const liveProducts = useCartStore.getState().products;
         const matchedProduct = liveProducts.find((p) =>
@@ -84,7 +85,7 @@ function VoiceNavigationInner() {
         );
 
         if (matchedProduct) {
-          addItem(matchedProduct, 1);
+          addItem(matchedProduct, quantity || 1);
           toast.success(`Agent added ${matchedProduct.name} to Cart`);
           return `Successfully added ${matchedProduct.name} to cart`;
         } else {
@@ -299,7 +300,7 @@ function VoiceNavigationInner() {
               <ul className="mt-1.5 flex flex-col gap-1 text-[11px] text-gray-600">
                 <li className="flex items-center gap-1.5 p-1 hover:bg-gray-50 rounded transition-colors">
                   <ShoppingBag size={10} className="text-gray-400" />
-                  <span>"Go to the shop page"</span>
+                  <span>"Go to the products page"</span>
                 </li>
                 <li className="flex items-center gap-1.5 p-1 hover:bg-gray-50 rounded transition-colors">
                   <Search size={10} className="text-gray-400" />

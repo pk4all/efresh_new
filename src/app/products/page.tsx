@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { SlidersHorizontal, Grid, List, ChevronDown, X } from "lucide-react";
@@ -34,10 +34,35 @@ function ShopContent() {
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!hasMore || productsLoading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((p) => p + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [hasMore, productsLoading, loadingMore]);
 
   const setStoreProducts = useCartStore((s) => s.setProducts);
   useEffect(() => {
@@ -354,17 +379,21 @@ function ShopContent() {
             </div>
           )}
 
-          {/* Load More Button */}
-          {mounted && hasMore && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={productsLoading || loadingMore}
-                className="btn-primary px-8 py-3 rounded-full text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-primary)", color: "white" }}
-              >
-                {productsLoading || loadingMore ? "Loading..." : "Load More"}
-              </button>
+          {/* Load More Sentinel / Button fallback */}
+          {mounted && (
+            <div ref={sentinelRef} className="flex justify-center mt-8 min-h-[50px] items-center">
+              {hasMore && (loadingMore || productsLoading) && (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "var(--color-primary)" }} />
+              )}
+              {hasMore && !loadingMore && !productsLoading && (
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  className="btn-primary px-8 py-3 rounded-full text-sm font-semibold transition-all cursor-pointer"
+                  style={{ backgroundColor: "var(--color-primary)", color: "white" }}
+                >
+                  Load More
+                </button>
+              )}
             </div>
           )}
         </div>
