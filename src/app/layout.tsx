@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import "rsuite/dist/rsuite.min.css";
 import "./globals.css";
 import { Toaster } from "sonner";
-import AnnouncementBar from "@/components/layout/AnnouncementBar";
-import Header from "@/components/layout/Header";
-import MegaNav from "@/components/layout/MegaNav";
-import Footer from "@/components/layout/Footer";
-import VoiceNavigation from "@/components/voice/VoiceNavigation";
+import MainLayoutWrapper from "@/components/layout/MainLayoutWrapper";
 
 export const metadata: Metadata = {
   title: "eFresh — Fresh Groceries Delivered Fast",
@@ -28,11 +24,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AnnouncementBar />
-        <Header />
-        <MegaNav />
-        <main>{children}</main>
-        <Footer />
+        <MainLayoutWrapper>
+          {children}
+        </MainLayoutWrapper>
         <Toaster
           position="top-right"
           richColors
@@ -43,7 +37,6 @@ export default function RootLayout({
             },
           }}
         />
-        <VoiceNavigation />
       </body>
     </html>
   );

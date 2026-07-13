@@ -19,19 +19,6 @@ export default function AnnouncementBar() {
           Welcome to eFresh! Wrap new offers/gift every single day on Weekends. New Coupon Code: <span className="font-bold text-yellow-300">eFresh024</span>
         </div>
 
-        {/* Right switchers */}
-        <div className="flex items-center gap-3 font-medium opacity-90">
-          <div className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
-            <span className="text-[12px] leading-none">🇺🇸</span>
-            <span>English</span>
-            <ChevronDown size={12} className="stroke-[2]" />
-          </div>
-          <span className="h-3 w-px bg-white/20" />
-          <div className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
-            <span>USD</span>
-            <ChevronDown size={12} className="stroke-[2]" />
-          </div>
-        </div>
       </div>
     </div>
   );

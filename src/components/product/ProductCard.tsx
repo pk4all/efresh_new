@@ -41,7 +41,6 @@ export default function ProductCard({ product }: Props) {
       duration: 2500,
     });
     setTimeout(() => setAdded(false), 1600);
-    openCart();
   };
 
   const handleWishlist = (e: React.MouseEvent) => {

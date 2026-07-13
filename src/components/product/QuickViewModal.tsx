@@ -22,7 +22,6 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const handleAdd = () => {
     addItem(product, qty);
     toast.success(`${product.name} added to cart!`);
-    openCart();
     onClose();
   };
 

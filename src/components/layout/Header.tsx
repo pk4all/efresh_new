@@ -185,7 +185,7 @@ export default function Header() {
             <span className="h-5 w-px bg-gray-200" />
 
             {/* Cart */}
-            <button
+            {/* <button
               onClick={openCart}
               className="relative text-gray-700 hover:text-[#0da487] transition-colors p-1 flex items-center justify-center cursor-pointer"
             >
@@ -195,9 +195,9 @@ export default function Header() {
                   {cartCount}
                 </span>
               )}
-            </button>
+            </button> */}
 
-            <span className="h-5 w-px bg-gray-200 hidden sm:block" />
+            {/* <span className="h-5 w-px bg-gray-200 hidden sm:block" /> */}
 
             {/* User Account */}
             <div className="relative hidden sm:block" ref={userRef}>

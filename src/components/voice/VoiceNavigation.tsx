@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Mic, MicOff, Sparkles, X, ChevronDown, ShoppingBag, Search, HelpCircle, Keyboard, Send } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 // import { products } from "@/data/products";
@@ -11,6 +11,9 @@ import { fetchProductsFromAgent, mapApiProductToProduct } from "@/utils/api";
 import { Product } from "@/types";
 function VoiceNavigationInner() {
   const router = useRouter();
+  const pathname = usePathname();
+  if (pathname === "/products") return null;
+
   const openCart = useCartStore((s) => s.openCart);
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);

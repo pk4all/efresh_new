@@ -40,7 +40,6 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const handleAdd = () => {
     addItem(product, qty);
     toast.success(`${product.name} added to cart!`);
-    openCart();
   };
 
   const discount = Math.round(
