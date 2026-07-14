@@ -71,6 +71,10 @@ function VoiceAssistantSidebarPanel() {
         return `Page ${page} not recognized. Choose home, shop, cart, checkout, wishlist, or account.`;
       },
       searchProducts: async (params: { query: string }) => {
+        if (typeof window !== "undefined" && window.location.pathname !== "/products") {
+          router.push("/products");
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
         const query = params.query || "";
         const res = await fetchProductsFromAgent({ limit: 100, offset: 0, search: query });
         const mapped = (res?.data || []).map(mapApiProductToProduct);
