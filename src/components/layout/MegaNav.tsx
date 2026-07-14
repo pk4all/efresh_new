@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
-  Zap,
   Carrot,
   Coffee,
   Croissant,
@@ -239,17 +238,7 @@ export default function MegaNav() {
           ))}
         </div>
 
-        {/* Deal Today Button */}
-        <div>
-          <Link
-            href="/products?filter=deals"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-bold transition-all hover:opacity-90"
-            style={{ backgroundColor: "#e6f7f4", color: "#0da487" }}
-          >
-            <Zap size={14} className="fill-current" />
-            Deal Today
-          </Link>
-        </div>
+
       </div>
     </nav>
   );

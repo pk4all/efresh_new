@@ -17,6 +17,7 @@ import { Product } from "@/types";
 function VoiceAssistantSidebarPanel() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCartStore = useCartStore((s) => s.clearCart);
 
@@ -112,6 +113,25 @@ function VoiceAssistantSidebarPanel() {
           return `Failed: Product "${productName}" not found in our catalog`;
         }
       },
+      updateCartQuantity: async (params: { productName: string, quantity: number }) => {
+        const productName = params.productName || "";
+        const quantity = params.quantity || 1;
+        const searchName = productName.toLowerCase().trim();
+        const liveProducts = useCartStore.getState().products;
+        const matchedProduct = liveProducts.find((p) =>
+          p.name.toLowerCase().includes(searchName)
+        );
+
+        if (matchedProduct) {
+          updateQuantity(matchedProduct.id, quantity || 1);
+          toast.success(`Agent updated ${matchedProduct.name} to Cart`);
+          return `Successfully updated ${matchedProduct.name} to cart`;
+        } else {
+          toast.error(`Agent couldn't find "${productName}"`);
+          return `Failed: Product "${productName}" not found in our catalog`;
+        }
+      },
+
       clearCart: async () => {
         clearCartStore();
         toast.info("Agent cleared the cart");

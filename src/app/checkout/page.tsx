@@ -1,14 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { CheckCircle, CreditCard, Smartphone, DollarSign } from "lucide-react";
+import { CheckCircle, CreditCard } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
 
 const PAYMENT_METHODS = [
   { id: "card", label: "Credit / Debit Card", icon: CreditCard },
-  { id: "upi", label: "UPI", icon: Smartphone },
-  { id: "cod", label: "Cash on Delivery", icon: DollarSign },
 ];
 
 export default function CheckoutPage() {
@@ -131,6 +129,86 @@ export default function CheckoutPage() {
   const update = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }));
 
+  const handleAddNewAddressSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please login to save a new address");
+      return;
+    }
+
+    if (!newAddressForm.main_address || !newAddressForm.main_city || !newAddressForm.main_state || !newAddressForm.zip_code) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
+      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+      const res = await fetch(`${cleanBase}/addresses`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          address: newAddressForm.label || "Other",
+          main_address: newAddressForm.main_address,
+          apartment: newAddressForm.apartment || null,
+          main_city: newAddressForm.main_city,
+          main_state: newAddressForm.main_state,
+          zip_code: newAddressForm.zip_code,
+          country: newAddressForm.country || "Australia",
+          default_ship: newAddressForm.default_ship ? 1 : 0,
+          billing_deliveryAddress: 3,
+          notes: "",
+          latitude: "0",
+          longitude: "0",
+        }),
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const newAddr = body.data || body;
+        
+        // Add new address to address list
+        setAddresses(prev => [...prev, newAddr]);
+        
+        // Auto select new address
+        setSelectedAddressId(newAddr.id);
+        setForm(prev => ({
+          ...prev,
+          address: newAddr.main_address || "",
+          city: newAddr.main_city || "",
+          zip: newAddr.zip_code || "",
+          country: newAddr.country || "Australia",
+        }));
+
+        toast.success("New address saved and selected!");
+        setShowNewAddressForm(false);
+
+        // Reset form
+        setNewAddressForm({
+          label: "Home",
+          main_address: "",
+          apartment: "",
+          main_city: "",
+          main_state: "",
+          zip_code: "",
+          country: "Australia",
+          default_ship: false,
+        });
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        const message = errBody.detail || errBody.message || "Failed to save address";
+        toast.error(typeof message === "string" ? message : JSON.stringify(message));
+      }
+    } catch (err) {
+      console.error("Failed to save new address:", err);
+      toast.error("Failed to save address. Please try again.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -145,44 +223,9 @@ export default function CheckoutPage() {
       return;
     }
 
-    let finalAddressId = selectedAddressId;
-
-    // If new address is filled, save it to their account
-    if (showNewAddressForm) {
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-        const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-        const res = await fetch(`${cleanBase}/addresses`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            address: newAddressForm.label || "Other",
-            main_address: newAddressForm.main_address,
-            apartment: newAddressForm.apartment || null,
-            main_city: newAddressForm.main_city,
-            main_state: newAddressForm.main_state,
-            zip_code: newAddressForm.zip_code,
-            country: newAddressForm.country || "Australia",
-            default_ship: newAddressForm.default_ship ? 1 : 0,
-            billing_deliveryAddress: 3,
-            notes: "",
-            latitude: "0",
-            longitude: "0",
-          }),
-        });
-
-        if (res.ok) {
-          const body = await res.json();
-          const newAddr = body.data || body;
-          finalAddressId = newAddr.id;
-          toast.success("New address saved to your account!");
-        }
-      } catch (err) {
-        console.error("Failed to save new address:", err);
-      }
+    if (!selectedAddressId || selectedAddressId === "new") {
+      toast.error("Please select a shipping address first, or add a new one");
+      return;
     }
 
     // Call storefront-checkout API
@@ -191,9 +234,9 @@ export default function CheckoutPage() {
       const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 
       const checkoutPayload = {
-        address_id: finalAddressId && finalAddressId !== "new" ? Number(finalAddressId) : null,
-        address: showNewAddressForm ? `${newAddressForm.main_address}, ${newAddressForm.main_city}, ${newAddressForm.main_state} ${newAddressForm.zip_code}` : form.address,
-        zip_code: showNewAddressForm ? newAddressForm.zip_code : form.zip,
+        address_id: Number(selectedAddressId),
+        address: form.address,
+        zip_code: form.zip,
         success_url: `${window.location.origin}/checkout?status=success`,
         cancel_url: `${window.location.origin}/checkout?status=cancel`,
         notes: "Deliver during shifts",
@@ -273,27 +316,6 @@ export default function CheckoutPage() {
               <h2 className="font-bold text-base mb-4" style={{ color: "var(--color-dark)" }}>
                 Shipping Information
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-                {[
-                  { label: "First Name", key: "firstName", placeholder: "John" },
-                  { label: "Last Name", key: "lastName", placeholder: "Doe" },
-                  { label: "Email", key: "email", placeholder: "john@example.com" },
-                  { label: "Phone", key: "phone", placeholder: "+1 (555) 000-0000" },
-                ].map(({ label, key, placeholder }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      {label} *
-                    </label>
-                    <input
-                      type="text" required placeholder={placeholder}
-                      value={form[key as keyof typeof form]}
-                      onChange={update(key as keyof typeof form)}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none transition-colors"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                ))}
-              </div>
 
               {/* Address List & Selection */}
               {loadingAddresses ? (
@@ -309,7 +331,6 @@ export default function CheckoutPage() {
                         key={addr.id}
                         onClick={() => {
                           setSelectedAddressId(addr.id);
-                          setShowNewAddressForm(false);
                           setForm(prev => ({
                             ...prev,
                             address: addr.main_address || "",
@@ -320,8 +341,8 @@ export default function CheckoutPage() {
                         }}
                         className="p-3.5 rounded-xl border-2 cursor-pointer transition-all hover:border-[#0da487]/50"
                         style={{
-                          borderColor: selectedAddressId === addr.id && !showNewAddressForm ? "var(--color-primary)" : "var(--color-border)",
-                          backgroundColor: selectedAddressId === addr.id && !showNewAddressForm ? "var(--color-primary-light)" : "white",
+                          borderColor: selectedAddressId === addr.id ? "var(--color-primary)" : "var(--color-border)",
+                          backgroundColor: selectedAddressId === addr.id ? "var(--color-primary-light)" : "white",
                         }}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -342,125 +363,17 @@ export default function CheckoutPage() {
 
                     <div
                       onClick={() => {
-                        setSelectedAddressId("new");
                         setShowNewAddressForm(true);
                       }}
                       className="p-3.5 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center text-center transition-all hover:border-[#0da487]/50"
                       style={{
-                        borderColor: showNewAddressForm ? "var(--color-primary)" : "var(--color-border)",
-                        backgroundColor: showNewAddressForm ? "var(--color-primary-light)" : "white",
+                        borderColor: "var(--color-border)",
+                        backgroundColor: "white",
                       }}
                     >
                       <span className="font-bold text-sm text-[#0da487]">+ Add New Address</span>
                       <span className="text-[10px] text-gray-400 mt-1">Ship to a different location</span>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Add New Address Fields */}
-              {showNewAddressForm && (
-                <div className="border-t pt-4 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ borderColor: "var(--color-border)" }}>
-                  <div className="sm:col-span-2">
-                    <h3 className="font-bold text-sm text-gray-700">New Address Details</h3>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      Address Label (e.g. Home, Work) *
-                    </label>
-                    <input
-                      type="text" required placeholder="e.g. Home, Work"
-                      value={newAddressForm.label}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, label: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      Street Address *
-                    </label>
-                    <input
-                      type="text" required placeholder="123 Main St"
-                      value={newAddressForm.main_address}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_address: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      Apartment, Suite, etc. (Optional)
-                    </label>
-                    <input
-                      type="text" placeholder="Apt 4B"
-                      value={newAddressForm.apartment}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, apartment: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      City *
-                    </label>
-                    <input
-                      type="text" required placeholder="New York"
-                      value={newAddressForm.main_city}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_city: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      State *
-                    </label>
-                    <input
-                      type="text" required placeholder="NY"
-                      value={newAddressForm.main_state}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_state: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      ZIP / Postal Code *
-                    </label>
-                    <input
-                      type="text" required placeholder="10001"
-                      value={newAddressForm.zip_code}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, zip_code: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                      Country *
-                    </label>
-                    <select
-                      required value={newAddressForm.country}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, country: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }}
-                    >
-                      {["Australia", "United States", "United Kingdom", "Canada", "India"].map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2 flex items-center gap-2 mt-1">
-                    <input
-                      type="checkbox" id="save-addr"
-                      checked={newAddressForm.default_ship}
-                      onChange={(e) => setNewAddressForm(prev => ({ ...prev, default_ship: e.target.checked }))}
-                      className="rounded accent-[#0da487]"
-                    />
-                    <label htmlFor="save-addr" className="text-xs text-gray-600 font-medium cursor-pointer">
-                      Set as default shipping address
-                    </label>
                   </div>
                 </div>
               )}
@@ -493,18 +406,6 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              {payment === "card" && (
-                <div className="mt-4 space-y-3">
-                  <input placeholder="Card number" className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)" }} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input placeholder="MM / YY" className="border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }} />
-                    <input placeholder="CVV" className="border rounded-xl px-3 py-2.5 text-sm outline-none"
-                      style={{ borderColor: "var(--color-border)" }} />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -562,6 +463,157 @@ export default function CheckoutPage() {
           </div>
         </div>
       </form>
+      {showNewAddressForm && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 transition-opacity">
+          {/* Backdrop click to close */}
+          <div className="absolute inset-0" onClick={() => setShowNewAddressForm(false)} />
+          
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
+              <h3 className="font-bold text-lg" style={{ color: "var(--color-dark)" }}>Add New Address</h3>
+              <button
+                type="button"
+                onClick={() => setShowNewAddressForm(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-semibold outline-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                  Address Label (e.g. Home, Work) *
+                </label>
+                <input
+                  type="text" required placeholder="e.g. Home, Work"
+                  value={newAddressForm.label}
+                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, label: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: "var(--color-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                  Street Address *
+                </label>
+                <input
+                  type="text" required placeholder="123 Main St"
+                  value={newAddressForm.main_address}
+                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_address: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: "var(--color-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                  Apartment, Suite, etc. (Optional)
+                </label>
+                <input
+                  type="text" placeholder="Apt 4B"
+                  value={newAddressForm.apartment}
+                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, apartment: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: "var(--color-border)" }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                    City *
+                  </label>
+                  <input
+                    type="text" required placeholder="New York"
+                    value={newAddressForm.main_city}
+                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_city: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: "var(--color-border)" }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                    State *
+                  </label>
+                  <input
+                    type="text" required placeholder="NY"
+                    value={newAddressForm.main_state}
+                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_state: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: "var(--color-border)" }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                    ZIP / Postal Code *
+                  </label>
+                  <input
+                    type="text" required placeholder="10001"
+                    value={newAddressForm.zip_code}
+                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, zip_code: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: "var(--color-border)" }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
+                    Country *
+                  </label>
+                  <select
+                    required value={newAddressForm.country}
+                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, country: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
+                    {["Australia", "United States", "United Kingdom", "Canada", "India"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox" id="save-addr"
+                  checked={newAddressForm.default_ship}
+                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, default_ship: e.target.checked }))}
+                  className="rounded accent-[#0da487] w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="save-addr" className="text-xs text-gray-600 font-medium cursor-pointer select-none">
+                  Set as default shipping address
+                </label>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t flex gap-3 bg-gray-50" style={{ borderColor: "var(--color-border)" }}>
+              <button
+                type="button"
+                onClick={() => setShowNewAddressForm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 font-semibold text-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddNewAddressSubmit()}
+                className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white transition-colors bg-[#0da487] hover:bg-[#0bc29e]"
+              >
+                Save Address
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
