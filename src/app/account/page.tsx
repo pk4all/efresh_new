@@ -116,7 +116,7 @@ function AccountContent() {
             day: "numeric",
           }) : ord.date || "Unknown Date",
           status: ord.status || "Pending",
-          total: parseFloat(ord.total || ord.grand_total || ord.total_price || 0),
+          total: parseFloat(ord.amount_total || ord.total || ord.grand_total || ord.total_price || 0),
           items,
         };
       });
