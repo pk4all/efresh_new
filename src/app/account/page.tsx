@@ -110,7 +110,7 @@ function AccountContent() {
 
         return {
           id: String(ord.id || ord.order_id || ord.order_number || ""),
-          date: ord.created_at ? new Date(ord.created_at).toLocaleDateString("en-US", {
+          date: (ord.added_date || ord.created_at) ? new Date(ord.added_date || ord.created_at).toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",
             day: "numeric",
