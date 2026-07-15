@@ -18,11 +18,22 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedPincode = localStorage.getItem("pincode");
-      const storedVendor = localStorage.getItem("vendor_id");
-      if (!storedPincode || !storedVendor || forceOpen) {
+      if (forceOpen) {
         setIsOpen(true);
       }
+
+      const handleOpen = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        if (customEvent.detail) {
+          localStorage.setItem("pending_cart_item", JSON.stringify(customEvent.detail));
+        }
+        setIsOpen(true);
+      };
+
+      window.addEventListener("open-pincode-modal", handleOpen);
+      return () => {
+        window.removeEventListener("open-pincode-modal", handleOpen);
+      };
     }
   }, [forceOpen]);
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { useCartStore } from "@/store/cartStore";
 import RightSidebar from "@/components/layout/RightSidebar";
 import VoiceNavigation from "@/components/voice/VoiceNavigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -16,6 +18,22 @@ interface MainLayoutWrapperProps {
 export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) {
   const pathname = usePathname();
   const isHomepage = pathname === "/";
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const pendingItemStr = localStorage.getItem("pending_cart_item");
+      if (pendingItemStr) {
+        try {
+          const { product, quantity } = JSON.parse(pendingItemStr);
+          useCartStore.getState().addItem(product, quantity);
+        } catch (e) {
+          console.error("Failed to add pending cart item:", e);
+        } finally {
+          localStorage.removeItem("pending_cart_item");
+        }
+      }
+    }
+  }, []);
 
   if (isHomepage) {
     return (

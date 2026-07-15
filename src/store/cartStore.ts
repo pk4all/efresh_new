@@ -75,6 +75,10 @@ export const useCartStore = create<CartStore>()(
       },
 
       addItem: (product, quantity = 1) => {
+        if (typeof window !== "undefined" && !localStorage.getItem("pincode")) {
+          window.dispatchEvent(new CustomEvent("open-pincode-modal", { detail: { product, quantity } }));
+          return;
+        }
         const headers = getAuthHeaders();
         if (headers) {
           const cleanBase = getBaseUrl();
