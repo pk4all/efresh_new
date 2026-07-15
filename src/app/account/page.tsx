@@ -22,6 +22,7 @@ import AddressTab from "@/components/account/AddressTab";
 import ProfileTab from "@/components/account/ProfileTab";
 import PrivacyTab from "@/components/account/PrivacyTab";
 import { handleAuthError } from "@/utils/auth";
+import { fetchUserOrders } from "@/utils/api";
 
 type TabType = "dashboard" | "orders" | "wishlist" | "address" | "profile" | "privacy";
 
@@ -82,6 +83,57 @@ function AccountContent() {
     gender: "",
     dob: "",
   });
+
+  // Orders State
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const fetchOrders = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setOrdersLoading(true);
+    try {
+      const data = await fetchUserOrders();
+      const orderList = data.data || data || [];
+      
+      const mappedOrders = orderList.map((ord: any) => {
+        const items = (ord.items || []).map((item: any) => ({
+          product: {
+            id: String(item.product_id || item.product?.id || ""),
+            name: item.product_name || item.product?.name || "Unknown Product",
+            image: item.product_image || item.product?.image || "/images/placeholder.jpg",
+            price: parseFloat(item.product_price || item.price || item.unit_price || 0),
+          },
+          qty: Number(item.qty || item.quantity || 1),
+          price: parseFloat(item.product_price || item.price || item.unit_price || 0),
+        }));
+
+        return {
+          id: String(ord.id || ord.order_id || ord.order_number || ""),
+          date: ord.created_at ? new Date(ord.created_at).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }) : ord.date || "Unknown Date",
+          status: ord.status || "Pending",
+          total: parseFloat(ord.total || ord.grand_total || ord.total_price || 0),
+          items,
+        };
+      });
+
+      setOrders(mappedOrders);
+    } catch (err) {
+      console.error("Failed to fetch orders:", err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "orders") {
+      fetchOrders();
+    }
+  }, [activeTab]);
 
   // Addresses State
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -302,30 +354,7 @@ function AccountContent() {
 
   const defaultAddress = addresses.find((addr) => addr.default_ship === 1);
 
-  // Mock Orders Data using actual products
-  const orders = [
-    {
-      id: "EF-92841",
-      date: "June 28, 2026",
-      status: "Pending",
-      total: 12.97,
-      items: [
-        { product: products[0], qty: 2, price: products[0].price },
-        { product: products[1], qty: 1, price: products[1].price },
-      ],
-    },
-    {
-      id: "EF-81045",
-      date: "May 15, 2026",
-      status: "Delivered",
-      total: 24.88,
-      items: [
-        { product: products[2], qty: 1, price: products[2].price },
-        { product: products[3], qty: 3, price: products[3].price },
-        { product: products[4], qty: 1, price: products[4].price },
-      ],
-    },
-  ];
+
 
   if (!authChecked) {
     return <div className="py-20 text-center text-sm text-gray-400 font-medium">Checking authentication...</div>;
@@ -431,7 +460,26 @@ function AccountContent() {
             )}
 
             {activeTab === "orders" && (
-              <OrdersTab orders={orders} />
+              ordersLoading ? (
+                <div className="py-16 text-center text-sm text-gray-400 font-bold flex flex-col items-center justify-center gap-2">
+                  <span className="w-6 h-6 rounded-full border-2 border-[#0da487] border-t-transparent animate-spin" />
+                  Loading your orders...
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="py-16 text-center">
+                  <ShoppingBag size={48} className="mx-auto text-gray-300 mb-3" />
+                  <p className="font-bold text-gray-700 text-sm">No orders found</p>
+                  <p className="text-xs text-gray-400 mt-1 mb-4">You haven&apos;t placed any orders yet.</p>
+                  <Link
+                    href="/products"
+                    className="inline-flex items-center justify-center bg-[#0da487] text-white hover:bg-[#0bc29e] font-extrabold text-xs py-2.5 px-6 rounded-xl transition-all duration-300 shadow-sm"
+                  >
+                    Start Shopping
+                  </Link>
+                </div>
+              ) : (
+                <OrdersTab orders={orders} />
+              )
             )}
 
             {activeTab === "wishlist" && (

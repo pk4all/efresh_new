@@ -30,7 +30,7 @@ export async function fetchCategories(params: GetCategoriesParams = {}) {
   const queryParams = new URLSearchParams();
   queryParams.append("limit", String(params.limit ?? 50));
   queryParams.append("offset", String(params.offset ?? 0));
-  
+
   const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
     ? params.vendor_id
     : getStoredVendorId();
@@ -53,7 +53,7 @@ export async function fetchSubCategories(params: GetSubCategoriesParams = {}) {
   const queryParams = new URLSearchParams();
   queryParams.append("limit", String(params.limit ?? 50));
   queryParams.append("offset", String(params.offset ?? 0));
-  
+
   const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
     ? params.vendor_id
     : getStoredVendorId();
@@ -94,7 +94,7 @@ export async function fetchProducts(params: GetProductsParams = {}) {
   } else {
     queryParams.append("offset", String(params.offset ?? 0));
   }
-  
+
   const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
     ? params.vendor_id
     : getStoredVendorId();
@@ -126,7 +126,7 @@ export async function fetchProductsFromAgent(params: GetProductsParams = {}) {
   } else {
     queryParams.append("offset", String(params.offset ?? 0));
   }
-  
+
   const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
     ? params.vendor_id
     : getStoredVendorId();
@@ -204,4 +204,24 @@ export function mapApiProductToProduct(apiItem: any): any {
     seasonal: apiItem.seasonal || "",
     product_image: apiItem.product_image || "",
   };
+}
+
+export async function fetchUserOrders() {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) {
+    throw new Error("No authorization token found");
+  }
+
+  const response = await fetch(`${cleanBase}/orders`, {
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch orders: ${response.statusText}`);
+  }
+
+  return response.json();
 }
