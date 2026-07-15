@@ -65,6 +65,7 @@ function ShopContent() {
   }, [hasMore, productsLoading, loadingMore]);
 
   const setStoreProducts = useCartStore((s) => s.setProducts);
+  const products = useCartStore((state) => state.products);
   useEffect(() => {
     setStoreProducts(dbProducts);
   }, [dbProducts, setStoreProducts]);
@@ -148,7 +149,7 @@ function ShopContent() {
   };
 
   const filtered = useMemo(() => {
-    let result = [...dbProducts];
+    let result = [...products];
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -178,9 +179,10 @@ function ShopContent() {
     else result.sort((a, b) => b.reviewCount - a.reviewCount);
 
     return result;
-  }, [dbProducts, selectedCategories, priceRange, sort, searchQuery]);
+  }, [products, selectedCategories, priceRange, sort, searchQuery]);
 
   const paginated = filtered;
+
 
 
   const Sidebar = () => (

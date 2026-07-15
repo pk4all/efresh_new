@@ -77,7 +77,9 @@ function VoiceAssistantSidebarPanel() {
         }
         const query = params.query || "";
         const res = await fetchProductsFromAgent({ limit: 100, offset: 0, search: query });
+        console.log("search res", res);
         const mapped = (res?.data || []).map(mapApiProductToProduct);
+        console.log(mapped, 'mapeddata');
         setProducts(mapped);
         toast.success(`Agent searched for "${query}"`);
         return `Searched for products matching "${query}"`;
