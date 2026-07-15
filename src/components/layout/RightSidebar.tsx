@@ -105,15 +105,17 @@ function VoiceAssistantSidebarPanel() {
       removeProductToCart: async (params: { productName: string, quantity: number }) => {
         const productName = params.productName || "";
         const searchName = productName.toLowerCase().trim();
-        const liveProducts = useCartStore.getState().products;
+        const liveProducts = useCartStore.getState().items;
+        console.log(liveProducts, 'live cart product in remove product function');
+        console.log(searchName, 'search name in remove product function');
         const matchedProduct = liveProducts.find((p) =>
-          p.name.toLowerCase().includes(searchName)
+          p.product.name.toLowerCase().includes(searchName)
         );
-
+        console.log(matchedProduct, 'matched product in remove product function');
         if (matchedProduct) {
-          removeItem(matchedProduct.id);
-          toast.success(`Agent removed ${matchedProduct.name} from Cart`);
-          return `Successfully removed ${matchedProduct.name} from cart`;
+          removeItem(matchedProduct.product.id);
+          toast.success(`Agent removed ${matchedProduct.product.name} from Cart`);
+          return `Successfully removed ${matchedProduct.product.name} from cart`;
         } else {
           toast.error(`Agent couldn't find "${productName}"`);
           return `Failed: Product "${productName}" not found in our catalog`;
