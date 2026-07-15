@@ -49,20 +49,19 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
 
     try {
       const res = await getVendorByPincode(pincode.trim());
-      
+
       // Check for vendor_id inside response data structure
-      const vendorData = res?.data || res;
-      const vendorId = vendorData?.vendor_id || vendorData?.id || vendorData?.vendor?.id || vendorData?.vendor?.vendor_id;
+      const vendorData = res?.data[0] || res;
+      const vendorId = vendorData?.slug || vendorData?.name
 
       if (vendorId) {
         localStorage.setItem("pincode", pincode.trim());
         localStorage.setItem("vendor_id", String(vendorId));
         localStorage.setItem("vendor_data", JSON.stringify(vendorData));
-        
         toast.success(`Location set! Connected to vendor ${vendorId}`);
         setIsOpen(false);
         if (onClose) onClose();
-        
+
         // Reload page to re-fetch products/categories using the new vendor context
         window.location.reload();
       } else {
