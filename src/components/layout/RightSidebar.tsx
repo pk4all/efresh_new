@@ -240,39 +240,41 @@ function VoiceAssistantSidebarPanel() {
   const isConnecting = status === "connecting";
 
   return (
-    <div className="flex-1 flex flex-col p-4 overflow-y-auto select-none bg-white">
+    <div className="flex-1 flex flex-col p-5 overflow-y-auto select-none bg-gray-50/20 custom-scrollbar">
       {/* Visualizer & Status */}
-      <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center min-h-[100px] border border-gray-100 mb-3">
+      <div className="bg-white rounded-2xl p-5 flex flex-col items-center justify-center min-h-[120px] border border-gray-100 shadow-sm mb-4 transition-all duration-300">
         {isConnected ? (
-          <div className="flex items-center gap-1.5 h-6 mb-3">
+          <div className="flex items-center gap-2 h-8 mb-3">
             <span className="w-1.5 h-4 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-            <span className="w-1.5 h-6 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+            <span className="w-1.5 h-7 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
             <span className="w-1.5 h-5 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
-            <span className="w-1.5 h-6 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
+            <span className="w-1.5 h-8 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
             <span className="w-1.5 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "600ms" }}></span>
           </div>
         ) : isConnecting ? (
-          <span className="text-xs text-[#0da487] font-medium mb-3 animate-pulse">Establishing WebRTC connection...</span>
+          <div className="w-8 h-8 rounded-full border-2 border-[#0da487] border-t-transparent animate-spin mb-3"></div>
         ) : (
-          <MicOff size={28} className="text-gray-400 mb-3" />
+          <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mb-3 text-gray-400">
+            <MicOff size={22} />
+          </div>
         )}
 
-        <p className="text-xs text-gray-500 font-medium text-center">
+        <p className="text-xs text-gray-500 font-bold text-center">
           {isConnected
             ? "Connected! Talk to the agent."
             : isConnecting
-              ? "Connecting to ElevenLabs..."
-              : "Click 'Start Agent' to talk with voice commands"}
+              ? "Establishing connection..."
+              : "Voice assistant is inactive"}
         </p>
       </div>
 
       {/* Connection & Action */}
-      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3 mb-4">
+      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3.5 mb-4">
         <button
           onClick={handleToggleSession}
-          className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${isConnected
-            ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-            : "bg-[#0da487]/10 text-[#0da487] border border-[#0da487]/20 hover:bg-[#0da487]/20"
+          className={`flex items-center justify-center gap-1.5 px-4.5 py-2.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all active:scale-95 ${isConnected
+            ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 shadow-sm"
+            : "bg-[#0da487]/10 text-[#0da487] border border-[#0da487]/20 hover:bg-[#0da487]/20 shadow-sm"
             }`}
         >
           {isConnected ? (
@@ -288,48 +290,48 @@ function VoiceAssistantSidebarPanel() {
           )}
         </button>
 
-        <span className="text-[10px] text-[#0da487] font-bold uppercase bg-[#0da487]/10 px-2.5 py-1 rounded border border-[#0da487]/20">
-          eFresh Agent
+        <span className="text-[10px] text-[#0da487] font-extrabold uppercase bg-[#0da487]/10 px-3 py-1.5 rounded-lg border border-[#0da487]/20 tracking-wider">
+          eFresh AI Agent
         </span>
       </div>
 
       {/* Command input */}
-      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-gray-50 p-1 border border-gray-100 rounded-xl mb-4">
+      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[#0da487] transition-all">
         <input
           type="text"
           value={textCommand}
           onChange={(e) => setTextCommand(e.target.value)}
           placeholder="Type command (e.g. 'go home')"
-          className="flex-1 px-3 py-2 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487]"
+          className="flex-1 px-3 py-2.5 text-xs text-gray-700 bg-white outline-none rounded-lg"
         />
         <button
           type="submit"
-          className="p-2 bg-[#0da487] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center"
+          className="p-2.5 bg-[#0da487] text-white rounded-lg hover:bg-[#0bc29e] transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[#0da487]/20"
           title="Send Command"
         >
-          <Send size={14} />
+          <Send size={13} />
         </button>
       </form>
 
       {/* Guide */}
       <div className="flex-1">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-2">
+        <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-3">
           <HelpCircle size={12} /> Try Saying:
         </span>
-        <ul className="flex flex-col gap-1.5 text-xs text-gray-600">
-          <li className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+        <ul className="flex flex-col gap-2 text-xs text-gray-600">
+          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
             <ShoppingBag size={13} className="text-[#0da487]" />
             <span>"Go to the product page"</span>
           </li>
-          <li className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
             <Search size={13} className="text-[#0da487]" />
             <span>"Search for organic grapes"</span>
           </li>
-          <li className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
             <Sparkles size={13} className="text-[#ffa53b]" />
             <span>"Add organic spinach to my cart"</span>
           </li>
-          <li className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
             <ChevronRight size={13} className="text-gray-400" />
             <span>"Clear my cart" or "Scroll down"</span>
           </li>
@@ -350,45 +352,52 @@ export default function RightSidebar() {
       {/* TOP HALF: CART */}
       <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
         {/* Cart Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#eceff1] bg-gray-50">
-          <div className="flex items-center gap-2">
-            <ShoppingBag size={18} className="text-[#0da487]" />
-            <span className="font-bold text-sm text-gray-800 uppercase tracking-wider">
-              Your Cart
-            </span>
-            <span className="w-5 h-5 rounded-full text-white text-[10px] flex items-center justify-center font-bold bg-[#0da487]">
-              {items.reduce((s, i) => s + i.quantity, 0)}
-            </span>
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#eceff1] bg-white">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#0da487]/10 flex items-center justify-center text-[#0da487]">
+              <ShoppingBag size={18} />
+            </div>
+            <div>
+              <h6 className="font-bold text-sm text-gray-800 tracking-wider">
+                Your Cart
+              </h6>
+              <p className="text-[10px] text-gray-400 font-medium">Manage your items</p>
+            </div>
           </div>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#0da487] text-white">
+            {items.reduce((s, i) => s + i.quantity, 0)}
+          </span>
         </div>
 
         {/* Cart items list */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 bg-white space-y-2.5 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-5 py-4 bg-gray-50/50 space-y-3 custom-scrollbar">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-6">
-              <ShoppingBag size={42} className="text-gray-300" />
-              <p className="font-semibold text-gray-500 text-sm">Your cart is empty</p>
-              <p className="text-xs text-gray-400">Add products to get started</p>
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-6">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-1 text-gray-300">
+                <ShoppingBag size={32} />
+              </div>
+              <p className="font-bold text-gray-700 text-sm">Your cart is empty</p>
+              <p className="text-xs text-gray-400 max-w-[200px]">Add some fresh items to your cart to checkout!</p>
             </div>
           ) : (
             items.map((item) => (
               <div
                 key={item.product.id}
-                className="flex gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
+                className="flex gap-3 p-3.5 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200/60 transition-all duration-300"
               >
-                <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-gray-100">
+                <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
                   <Image
                     src={item.product.image}
                     alt={item.product.name}
                     fill
                     unoptimized
-                    className="object-cover"
+                    className="object-cover hover:scale-105 transition-transform duration-300"
                     sizes="56px"
                   />
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                   <div className="flex justify-between items-start gap-2">
-                    <span className="text-xs font-bold text-gray-800 line-clamp-1">
+                    <span className="text-xs font-bold text-gray-800 line-clamp-1 hover:text-[#0da487] transition-colors cursor-default">
                       {item.product.name}
                     </span>
                     <span className="text-xs font-extrabold text-[#0da487] flex-shrink-0">
@@ -396,28 +405,29 @@ export default function RightSidebar() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md px-1 py-0.5">
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg p-0.5">
                       <button
-                        className="w-5 h-5 rounded hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors"
+                        className="w-5 h-5 rounded-md hover:bg-white hover:shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 transition-all active:scale-95"
                         onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                       >
-                        <Minus size={8} />
+                        <Minus size={10} />
                       </button>
-                      <span className="text-xs text-gray-700 font-medium w-4 text-center">{item.quantity}</span>
+                      <span className="text-xs text-gray-700 font-bold w-4 text-center select-none">{item.quantity}</span>
                       <button
-                        className="w-5 h-5 rounded hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors"
+                        className="w-5 h-5 rounded-md hover:bg-white hover:shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 transition-all active:scale-95"
                         onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                       >
-                        <Plus size={8} />
+                        <Plus size={10} />
                       </button>
                     </div>
 
                     <button
-                      className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                      className="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg p-1.5 transition-all duration-300"
                       onClick={() => removeItem(item.product.id)}
+                      title="Remove Item"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -428,25 +438,27 @@ export default function RightSidebar() {
 
         {/* Cart Footer */}
         {items.length > 0 && (
-          <div className="border-t border-[#eceff1] px-5 py-3.5 space-y-2 bg-gray-50">
+          <div className="border-t border-gray-100 px-6 py-4.5 space-y-3.5 bg-white">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Subtotal</span>
-              <span className="font-bold text-sm text-gray-800">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Subtotal</span>
+              <span className="font-extrabold text-base text-gray-800">
                 ${total.toFixed(2)}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="grid grid-cols-2 gap-3">
               <Link
                 href="/cart"
-                className="flex items-center justify-center border border-gray-200 hover:border-gray-300 hover:bg-white text-gray-700 hover:text-gray-900 font-semibold text-xs py-2 px-3 rounded-full transition-all bg-white shadow-sm"
+                className="flex items-center justify-center gap-1.5 border-2 border-[#0da487] text-[#0da487] bg-white hover:bg-[#0da487] hover:text-white active:scale-[0.97] font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all duration-300 shadow-sm text-center"
               >
+                <ShoppingBag size={14} />
                 View Cart
               </Link>
               <Link
                 href="/checkout"
-                className="flex items-center justify-center bg-[#0da487] hover:bg-[#0b8b72] text-white font-semibold text-xs py-2 px-3 rounded-full transition-all border border-transparent shadow-sm"
+                className="flex items-center justify-center gap-1.5 border-2 border-[#0da487] text-[#0da487] bg-white hover:bg-[#0da487] hover:text-white active:scale-[0.97] font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all duration-300 shadow-sm text-center"
               >
                 Checkout
+                <ChevronRight size={14} />
               </Link>
             </div>
           </div>
@@ -456,12 +468,17 @@ export default function RightSidebar() {
       {/* BOTTOM HALF: VOICE ASSISTANT */}
       <div className="h-1/2 flex flex-col overflow-hidden">
         {/* Voice Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#eceff1] bg-gray-50">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-[#0da487] animate-pulse" />
-            <span className="font-bold text-sm text-gray-800 uppercase tracking-wider">
-              eFresh Voice Assistant
-            </span>
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#eceff1] bg-white">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#0da487]/10 flex items-center justify-center text-[#0da487]">
+              <Sparkles size={18} className="text-[#0da487] animate-pulse" />
+            </div>
+            <div>
+              <h6 className="text-sm text-gray-500 tracking-wider">
+                eFresh Voice Assistant
+              </h6>
+              <p className="text-[10px] text-gray-400 font-medium">Control with your voice</p>
+            </div>
           </div>
         </div>
 
