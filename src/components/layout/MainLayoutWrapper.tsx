@@ -7,6 +7,7 @@ import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Header from "@/components/layout/Header";
 import MegaNav from "@/components/layout/MegaNav";
 import Footer from "@/components/layout/Footer";
+import PincodeModal from "@/components/layout/PincodeModal";
 
 interface MainLayoutWrapperProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
         <main>{children}</main>
         <Footer />
         <VoiceNavigation />
+        <PincodeModal />
       </>
     );
   }
@@ -39,6 +41,7 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
         <Footer />
       </div>
       <RightSidebar />
+      <PincodeModal />
     </div>
   );
 }

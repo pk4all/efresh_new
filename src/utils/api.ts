@@ -5,6 +5,23 @@ const getBaseUrl = () => {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+export function getStoredVendorId(): string {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("vendor_id") || "vendor_test3";
+  }
+  return "vendor_test3";
+}
+
+export async function getVendorByPincode(pincode: string) {
+  const cleanBase = getBaseUrl();
+  const url = `${cleanBase}/vendors/by-pincode?pincode=${encodeURIComponent(pincode)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch vendor: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 /**
  * Fetches categories from the storefront API.
  */
@@ -13,7 +30,11 @@ export async function fetchCategories(params: GetCategoriesParams = {}) {
   const queryParams = new URLSearchParams();
   queryParams.append("limit", String(params.limit ?? 50));
   queryParams.append("offset", String(params.offset ?? 0));
-  queryParams.append("vendor_id", params.vendor_id ?? "vendor_test3");
+  
+  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
+    ? params.vendor_id
+    : getStoredVendorId();
+  queryParams.append("vendor_id", activeVendor);
 
   const url = `${cleanBase}/categories?${queryParams.toString()}`;
 
@@ -32,7 +53,12 @@ export async function fetchSubCategories(params: GetSubCategoriesParams = {}) {
   const queryParams = new URLSearchParams();
   queryParams.append("limit", String(params.limit ?? 50));
   queryParams.append("offset", String(params.offset ?? 0));
-  queryParams.append("vendor_id", params.vendor_id ?? "vendor_test3");
+  
+  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
+    ? params.vendor_id
+    : getStoredVendorId();
+  queryParams.append("vendor_id", activeVendor);
+
   if (params.category_id) {
     queryParams.append("category_id", params.category_id);
   }
@@ -68,7 +94,12 @@ export async function fetchProducts(params: GetProductsParams = {}) {
   } else {
     queryParams.append("offset", String(params.offset ?? 0));
   }
-  queryParams.append("vendor_id", params.vendor_id ?? "vendor_test3");
+  
+  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
+    ? params.vendor_id
+    : getStoredVendorId();
+  queryParams.append("vendor_id", activeVendor);
+
   if (params.category_id) {
     queryParams.append("category_id", params.category_id);
   }
@@ -95,7 +126,12 @@ export async function fetchProductsFromAgent(params: GetProductsParams = {}) {
   } else {
     queryParams.append("offset", String(params.offset ?? 0));
   }
-  queryParams.append("vendor_id", params.vendor_id ?? "vendor_test3");
+  
+  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test3"
+    ? params.vendor_id
+    : getStoredVendorId();
+  queryParams.append("vendor_id", activeVendor);
+
   if (params.category_id) {
     queryParams.append("category_id", params.category_id);
   }

@@ -17,6 +17,7 @@ import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import CartDrawer from "@/components/cart/CartDrawer";
 import AuthModal from "@/components/auth/AuthModal";
+import PincodeModal from "@/components/layout/PincodeModal";
 
 const categories = [
   "All Categories",
@@ -28,13 +29,11 @@ const categories = [
   "Grocery & Staples",
 ];
 
-const cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"];
-
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  const [selectedCity, setSelectedCity] = useState("Your Location");
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [pincode, setPincode] = useState("");
+  const [showPincodeModal, setShowPincodeModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -50,7 +49,6 @@ export default function Header() {
   const openCart = useCartStore((s) => s.openCart);
   const wishlistCount = useWishlistStore((s) => s.getCount());
 
-  const cityRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,13 +62,15 @@ export default function Header() {
       if (token) {
         useCartStore.getState().syncCartWithDb();
       }
+      const storedPincode = localStorage.getItem("pincode");
+      if (storedPincode) {
+        setPincode(storedPincode);
+      }
     };
 
     checkAuth();
 
     const handler = (e: MouseEvent) => {
-      if (cityRef.current && !cityRef.current.contains(e.target as Node))
-        setShowCityDropdown(false);
       if (userRef.current && !userRef.current.contains(e.target as Node))
         setShowUserMenu(false);
     };
@@ -104,33 +104,22 @@ export default function Header() {
           </Link>
 
           {/* Location picker */}
-          <div className="relative hidden lg:block" ref={cityRef}>
+          <div className="relative hidden lg:block">
             <button
               className="flex items-center border rounded-sm px-3 py-1.5 cursor-pointer bg-gray-50/50 hover:bg-gray-100/80 transition-colors"
               style={{ borderColor: "#eceff1" }}
-              onClick={() => setShowCityDropdown(!showCityDropdown)}
+              onClick={() => setShowPincodeModal(true)}
             >
               <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center mr-2">
-                <MapPin size={14} className="text-gray-500" />
+                <MapPin size={14} className="text-[#0da487]" />
               </div>
               <span className="text-sm font-semibold mr-1.5" style={{ color: "#0da487" }}>
-                {selectedCity || "Your Location"}
+                {pincode ? `Pincode: ${pincode}` : "Set Pincode"}
               </span>
               <ChevronDown size={12} className="text-gray-400 stroke-[2.5]" />
             </button>
-            {showCityDropdown && (
-              <div className="absolute top-full left-0 mt-2 bg-white rounded-sm shadow-lg border border-gray-100 py-1 w-44 z-50">
-                {cities.map((city) => (
-                  <button
-                    key={city}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
-                    onClick={() => { setSelectedCity(city); setShowCityDropdown(false); }}
-                    style={{ color: selectedCity === city ? "#0da487" : "var(--color-dark)" }}
-                  >
-                    {city}
-                  </button>
-                ))}
-              </div>
+            {showPincodeModal && (
+              <PincodeModal forceOpen={true} onClose={() => setShowPincodeModal(false)} />
             )}
           </div>
 
