@@ -22,7 +22,7 @@ import AddressTab from "@/components/account/AddressTab";
 import ProfileTab from "@/components/account/ProfileTab";
 import PrivacyTab from "@/components/account/PrivacyTab";
 import { handleAuthError } from "@/utils/auth";
-import { fetchUserOrders } from "@/utils/api";
+import { fetchUserOrders, fetchUserProfile, updateUserProfile } from "@/utils/api";
 
 type TabType = "dashboard" | "orders" | "wishlist" | "address" | "profile" | "privacy";
 
@@ -41,31 +41,30 @@ function AccountContent() {
     } else {
       const fetchProfile = async () => {
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-          const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-          const res = await fetch(`${cleanBase}/profile`, {
-            headers: {
-              "Authorization": `Bearer ${token}`,
-            },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const profileData = data.data || data;
-            setProfile({
-              name: profileData.name || "User",
-              email: profileData.email || "",
-              phone: profileData.contact || "",
-              address: profileData.suburb || "",
-              gender: profileData.gender || "",
-              dob: profileData.dob || "",
-            });
-          } else {
-            const errData = await res.json().catch(() => ({}));
-            handleAuthError(errData.detail);
+          const data = await fetchUserProfile();
+          const profileData = data.data || data;
+          
+          let formattedDob = "";
+          if (profileData.dob) {
+            try {
+              formattedDob = new Date(profileData.dob).toISOString().split("T")[0];
+            } catch (e) {
+              formattedDob = profileData.dob;
+            }
           }
+
+          setProfile({
+            name: profileData.name || "User",
+            email: profileData.email || "",
+            phone: profileData.contact || "",
+            address: profileData.suburb || "",
+            gender: profileData.gender || "",
+            dob: formattedDob,
+          });
           await fetchAddresses();
-        } catch (err) {
+        } catch (err: any) {
           console.error("Failed to fetch profile:", err);
+          handleAuthError(err.message);
         } finally {
           setAuthChecked(true);
         }
@@ -193,22 +192,12 @@ function AccountContent() {
 
     setSaveLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-      const response = await fetch(`${cleanBase}/profile`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: profile.name,
-          contact: profile.phone,
-          suburb: profile.address,
-          gender: profile.gender || null,
-          dob: profile.dob || null,
-        }),
+      const response = await updateUserProfile({
+        name: profile.name,
+        phone: profile.phone,
+        address: profile.address,
+        gender: profile.gender || null,
+        dob: profile.dob || null,
       });
 
       if (!response.ok) {

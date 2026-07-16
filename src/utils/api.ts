@@ -225,3 +225,55 @@ export async function fetchUserOrders() {
 
   return response.json();
 }
+
+export async function fetchUserProfile() {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) {
+    throw new Error("No authorization token found");
+  }
+
+  const response = await fetch(`${cleanBase}/profile`, {
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch profile: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function updateUserProfile(profileData: {
+  name: string;
+  phone: string;
+  address: string;
+  gender: string | null;
+  dob: string | null;
+}) {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) {
+    throw new Error("No authorization token found");
+  }
+
+  const response = await fetch(`${cleanBase}/profile`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      name: profileData.name,
+      contact: profileData.phone,
+      suburb: profileData.address,
+      gender: profileData.gender || null,
+      dob: profileData.dob || null,
+    }),
+  });
+
+  return response;
+}
+
