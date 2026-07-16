@@ -464,11 +464,11 @@ export default function CheckoutPage() {
         </div>
       </form>
       {showNewAddressForm && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 transition-opacity">
+        <div className="fixed inset-0 z-50 flex justify-start bg-black/60 transition-opacity">
           {/* Backdrop click to close */}
           <div className="absolute inset-0" onClick={() => setShowNewAddressForm(false)} />
           
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-300">
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-300">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
               <h3 className="font-bold text-lg" style={{ color: "var(--color-dark)" }}>Add New Address</h3>

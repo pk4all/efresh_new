@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
-  X, ShoppingBag, ChevronRight, Minus, Plus, Trash2,
+  X, ShoppingBag, ChevronRight, ChevronDown, Minus, Plus, Trash2,
   Sparkles, Mic, MicOff, Send, HelpCircle, Search, Keyboard
 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
@@ -125,15 +125,17 @@ function VoiceAssistantSidebarPanel() {
         const productName = params.productName || "";
         const quantity = params.quantity || 1;
         const searchName = productName.toLowerCase().trim();
-        const liveProducts = useCartStore.getState().products;
+        const liveProducts = useCartStore.getState().items;
+        console.log(liveProducts, 'live cart product in update quantity function');
+        console.log(searchName, 'search name in update quantity function');
         const matchedProduct = liveProducts.find((p) =>
-          p.name.toLowerCase().includes(searchName)
+          p.product.name.toLowerCase().includes(searchName)
         );
-
+        console.log(matchedProduct, 'matched product in update quantity function');
         if (matchedProduct) {
-          updateQuantity(matchedProduct.id, quantity || 1);
-          toast.success(`Agent updated ${matchedProduct.name} to Cart`);
-          return `Successfully updated ${matchedProduct.name} to cart`;
+          updateQuantity(matchedProduct.product.id, quantity || 1);
+          toast.success(`Agent updated ${matchedProduct.product.name} to Cart`);
+          return `Successfully updated ${matchedProduct.product.name} to cart`;
         } else {
           toast.error(`Agent couldn't find "${productName}"`);
           return `Failed: Product "${productName}" not found in our catalog`;
@@ -157,6 +159,16 @@ function VoiceAssistantSidebarPanel() {
         setProducts(mapped);
         toast.success(`Agent loaded more products`);
         return `Successfully loaded more products`;
+      },
+      proceedToCheckout: async () => {
+        const cartItems = useCartStore.getState().items;
+        if (cartItems.length === 0) {
+          toast.error("Your cart is empty. Add items before checking out.");
+          return "Failed to proceed to checkout: Cart is empty";
+        }
+        router.push("/checkout");
+        toast.success("Agent proceeding to checkout");
+        return "Successfully navigated to the checkout page";
       },
     }
   });
@@ -234,68 +246,52 @@ function VoiceAssistantSidebarPanel() {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      endSession();
-    };
-  }, [endSession]);
+
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
 
   return (
-    <div className="flex-1 flex flex-col p-5 overflow-y-auto select-none bg-gray-50/20 custom-scrollbar">
+    <div className="flex-1 flex flex-col p-6 overflow-y-auto select-none bg-white custom-scrollbar">
       {/* Visualizer & Status */}
-      <div className="bg-white rounded-2xl p-5 flex flex-col items-center justify-center min-h-[120px] border border-gray-100 shadow-sm mb-4 transition-all duration-300">
+      <div className="bg-[#f8f9fa] rounded-2xl p-6 flex flex-col items-center justify-center min-h-[120px] border border-gray-100 mb-5 transition-all duration-300">
         {isConnected ? (
-          <div className="flex items-center gap-2 h-8 mb-3">
-            <span className="w-1.5 h-4 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-            <span className="w-1.5 h-7 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
-            <span className="w-1.5 h-5 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
-            <span className="w-1.5 h-8 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
-            <span className="w-1.5 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "600ms" }}></span>
+          <div className="flex items-center gap-1.5 h-6 mb-3">
+            <span className="w-1 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+            <span className="w-1 h-5 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+            <span className="w-1 h-4 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+            <span className="w-1 h-5 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
+            <span className="w-1 h-2 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "600ms" }}></span>
           </div>
         ) : isConnecting ? (
           <div className="w-8 h-8 rounded-full border-2 border-[#0da487] border-t-transparent animate-spin mb-3"></div>
         ) : (
-          <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mb-3 text-gray-400">
-            <MicOff size={22} />
-          </div>
+          <MicOff size={32} className="text-gray-400 mb-3" />
         )}
 
-        <p className="text-xs text-gray-500 font-bold text-center">
+        <p className="text-xs text-gray-500 font-medium text-center">
           {isConnected
             ? "Connected! Talk to the agent."
             : isConnecting
               ? "Establishing connection..."
-              : "Voice assistant is inactive"}
+              : "Click 'Start Voice' to speak to Agent"}
         </p>
       </div>
 
       {/* Connection & Action */}
-      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3.5 mb-4">
+      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3 mb-5">
         <button
           onClick={handleToggleSession}
-          className={`flex items-center justify-center gap-1.5 px-4.5 py-2.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all active:scale-95 ${isConnected
-            ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 shadow-sm"
-            : "bg-[#0da487]/10 text-[#0da487] border border-[#0da487]/20 hover:bg-[#0da487]/20 shadow-sm"
+          className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold cursor-pointer transition-all active:scale-95 ${isConnected
+            ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
+            : "bg-[#0da487]/10 text-[#0da487] hover:bg-[#0da487]/20"
             }`}
         >
-          {isConnected ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping mr-1"></span>
-              Stop Session
-            </>
-          ) : (
-            <>
-              <Mic size={14} className="animate-pulse" />
-              Start Voice Agent
-            </>
-          )}
+          {isConnected ? "Stop Agent Session" : "Start Voice Agent"}
         </button>
 
-        <span className="text-[10px] text-[#0da487] font-extrabold uppercase bg-[#0da487]/10 px-3 py-1.5 rounded-lg border border-[#0da487]/20 tracking-wider">
-          eFresh AI Agent
+        <span className="text-[10px] text-gray-400 font-bold uppercase bg-gray-100 px-2.5 py-1 rounded tracking-wider">
+          EFRESH AGENT
         </span>
       </div>
 
@@ -305,12 +301,12 @@ function VoiceAssistantSidebarPanel() {
           type="text"
           value={textCommand}
           onChange={(e) => setTextCommand(e.target.value)}
-          placeholder="Type command (e.g. 'go home')"
-          className="flex-1 px-3 py-2.5 text-xs text-gray-700 bg-white outline-none rounded-lg"
+          placeholder="Type command (e.g. 'go to shop')"
+          className="flex-1 px-3 py-2 text-xs text-gray-700 bg-white outline-none rounded-lg"
         />
         <button
           type="submit"
-          className="p-2.5 bg-[#0da487] text-white rounded-lg hover:bg-[#0bc29e] transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[#0da487]/20"
+          className="p-2 bg-[#0da487] text-white rounded-full hover:bg-[#0bc29e] transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[#0da487]/20"
           title="Send Command"
         >
           <Send size={13} />
@@ -318,26 +314,26 @@ function VoiceAssistantSidebarPanel() {
       </form>
 
       {/* Guide */}
-      <div className="flex-1">
-        <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-3">
-          <HelpCircle size={12} /> Try Saying:
+      <div className="flex-1 text-left">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1 mb-3">
+          <HelpCircle size={12} /> TRY SAYING:
         </span>
-        <ul className="flex flex-col gap-2 text-xs text-gray-600">
-          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
-            <ShoppingBag size={13} className="text-[#0da487]" />
-            <span>"Go to the product page"</span>
+        <ul className="flex flex-col gap-2.5 text-xs text-gray-500">
+          <li className="flex items-center gap-2">
+            <ShoppingBag size={12} className="text-[#0da487]" />
+            <span>&quot;Go to the products page&quot;</span>
           </li>
-          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
-            <Search size={13} className="text-[#0da487]" />
-            <span>"Search for organic grapes"</span>
+          <li className="flex items-center gap-2">
+            <Search size={12} className="text-[#0da487]" />
+            <span>&quot;Search for organic grapes&quot;</span>
           </li>
-          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
-            <Sparkles size={13} className="text-[#ffa53b]" />
-            <span>"Add organic spinach to my cart"</span>
+          <li className="flex items-center gap-2">
+            <Sparkles size={12} className="text-[#ffa53b]" />
+            <span>&quot;Add organic spinach to my cart&quot;</span>
           </li>
-          <li className="flex items-center gap-2.5 p-2.5 bg-white border border-gray-100 rounded-xl hover:border-gray-200/80 transition-all shadow-sm">
-            <ChevronRight size={13} className="text-gray-400" />
-            <span>"Clear my cart" or "Scroll down"</span>
+          <li className="flex items-center gap-2">
+            <ChevronRight size={12} className="text-gray-400" />
+            <span>&quot;Clear my cart&quot; or &quot;Scroll down&quot;</span>
           </li>
         </ul>
       </div>
@@ -346,10 +342,68 @@ function VoiceAssistantSidebarPanel() {
 }
 
 export default function RightSidebar() {
+  const pathname = usePathname();
+  const isHomepage = pathname === "/";
+  const [showFloatingPanel, setShowFloatingPanel] = useState(false);
+
   const items = useCartStore((s) => s.items);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const total = useCartStore((s) => s.getTotalPrice());
+
+  if (isHomepage) {
+    return (
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 select-none font-sans">
+        {/* Floating Control Panel */}
+        {showFloatingPanel && (
+          <div
+            className="w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-300 flex flex-col max-h-[500px]"
+            style={{ boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.15)" }}
+          >
+            {/* Header */}
+            <div className="bg-[#0da487] text-white px-4 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="animate-pulse" />
+                <span className="font-semibold text-sm">eFresh Voice Assistant</span>
+              </div>
+              <button
+                onClick={() => setShowFloatingPanel(false)}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content (Voice Panel) */}
+            <div className="flex-1 overflow-y-auto flex flex-col min-h-0 bg-white custom-scrollbar">
+              <VoiceAssistantSidebarPanel />
+            </div>
+          </div>
+        )}
+
+        {/* Floating Action Button (FAB) with pulsing rings for user focus */}
+        <div className="relative">
+          {!showFloatingPanel && (
+            <>
+              <span className="absolute inset-0 rounded-full bg-[#0da487]/25 animate-ping" style={{ animationDuration: '2.5s' }} />
+              <span className="absolute -inset-1 rounded-full bg-[#0da487]/10 animate-pulse" />
+            </>
+          )}
+          <button
+            onClick={() => setShowFloatingPanel(!showFloatingPanel)}
+            className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl border cursor-pointer transition-all duration-300 bg-white text-gray-700 border-gray-100 hover:scale-105 active:scale-95 z-10"
+            style={{ boxShadow: "0 8px 24px rgba(13, 164, 135, 0.3)", borderRadius: "50%" }}
+          >
+            {showFloatingPanel ? (
+              <ChevronDown size={22} className="text-[#0da487]" />
+            ) : (
+              <Mic size={22} className="text-[#0da487] animate-pulse" />
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[400px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-2xl overflow-hidden font-sans">
@@ -399,53 +453,45 @@ export default function RightSidebar() {
                     sizes="56px"
                   />
                 </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-between">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="text-xs font-bold text-gray-800 line-clamp-1 hover:text-[#0da487] transition-colors cursor-default">
-                      {item.product.name}
-                    </span>
-                    <span className="text-xs font-extrabold text-[#0da487] flex-shrink-0">
-                      ${(item.product.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg p-0.5">
+                <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
+                  <span className="text-xs font-bold text-gray-800 line-clamp-1">{item.product.name}</span>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <span className="text-xs font-black text-[#0da487]">${(item.product.price * item.quantity).toFixed(2)}</span>
+                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden h-7 bg-white shadow-sm">
                       <button
-                        className="w-5 h-5 rounded-md hover:bg-white hover:shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 transition-all active:scale-95"
                         onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        className="px-2 h-full text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
                       >
-                        <Minus size={10} />
+                        <Minus size={10} className="stroke-[3]" />
                       </button>
-                      <span className="text-xs text-gray-700 font-bold w-4 text-center select-none">{item.quantity}</span>
+                      <span className="px-2 text-xs font-bold text-gray-700 min-w-[20px] text-center select-none">{item.quantity}</span>
                       <button
-                        className="w-5 h-5 rounded-md hover:bg-white hover:shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 transition-all active:scale-95"
                         onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                        className="px-2 h-full text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
                       >
-                        <Plus size={10} />
+                        <Plus size={10} className="stroke-[3]" />
                       </button>
                     </div>
-
-                    <button
-                      className="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg p-1.5 transition-all duration-300"
-                      onClick={() => removeItem(item.product.id)}
-                      title="Remove Item"
-                    >
-                      <Trash2 size={13} />
-                    </button>
                   </div>
                 </div>
+                <button
+                  onClick={() => removeItem(item.product.id)}
+                  className="self-center p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                  title="Remove item"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))
           )}
         </div>
 
-        {/* Cart Footer */}
+        {/* Cart Total Summary / Checkout Buttons */}
         {items.length > 0 && (
-          <div className="border-t border-gray-100 px-6 py-4.5 space-y-3.5 bg-white">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Subtotal</span>
-              <span className="font-extrabold text-base text-gray-800">
+          <div className="p-5 bg-white border-t border-[#eceff1] space-y-4">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-400 font-bold">Total:</span>
+              <span className="text-lg font-black text-gray-800">
                 ${total.toFixed(2)}
               </span>
             </div>
@@ -470,26 +516,19 @@ export default function RightSidebar() {
       </div>
 
       {/* BOTTOM HALF: VOICE ASSISTANT */}
-      <div className="h-1/2 flex flex-col overflow-hidden">
-        {/* Voice Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#eceff1] bg-white">
+      <div className="h-1/2 flex flex-col overflow-hidden bg-white">
+        {/* Voice Header with solid teal background like the screenshot */}
+        <div className="flex items-center justify-between px-6 py-4 bg-[#0da487] text-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#0da487]/10 flex items-center justify-center text-[#0da487]">
-              <Sparkles size={18} className="text-[#0da487] animate-pulse" />
-            </div>
-            <div>
-              <h6 className="text-sm text-gray-500 tracking-wider">
-                eFresh Voice Assistant
-              </h6>
-              <p className="text-[10px] text-gray-400 font-medium">Control with your voice</p>
-            </div>
+            <Sparkles size={18} className="animate-pulse text-white" />
+            <h6 className="font-bold text-sm text-white tracking-wider">
+              eFresh Voice Assistant
+            </h6>
           </div>
         </div>
 
-        {/* Voice content wrapped in ConversationProvider */}
-        <ConversationProvider>
-          <VoiceAssistantSidebarPanel />
-        </ConversationProvider>
+        {/* Voice content */}
+        <VoiceAssistantSidebarPanel />
       </div>
 
       {/* Custom Scrollbar CSS */}

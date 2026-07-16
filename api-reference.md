@@ -231,3 +231,12 @@ Authorization: Bearer <your_jwt_token>
   }
 }
 ```
+
+
+# Voice Agent Remaining Works (Functions).
+1. For Checkout
+2. For order stauts its a webhook
+3. For tracking order its a webhook
+4. Cart Summery
+5. Proceed to Checkout
+6. Place order.
