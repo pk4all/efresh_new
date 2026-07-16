@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import ProductCard from "@/components/product/ProductCard";
-import DealsCountdown from "./DealsCountdown";
 import { fetchProducts, mapApiProductToProduct } from "@/utils/api";
 import { Product } from "@/types";
 
@@ -42,11 +41,6 @@ export default function TodayDealsSection() {
           <p className="text-xs md:text-sm text-gray-500 mt-1">
             Don&apos;t miss this opportunity at a special discount just for this week.
           </p>
-        </div>
-
-        {/* Expires Countdown badge using the premium DealsCountdown component */}
-        <div className="self-start md:self-center bg-[#fff] border border-gray-100 shadow-sm px-4 py-2 rounded-2xl">
-          <DealsCountdown />
         </div>
       </div>
 
