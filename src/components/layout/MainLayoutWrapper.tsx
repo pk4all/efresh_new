@@ -10,7 +10,6 @@ import MegaNav from "@/components/layout/MegaNav";
 import Footer from "@/components/layout/Footer";
 import PincodeModal from "@/components/layout/PincodeModal";
 import { toast } from "sonner";
-import { ConversationProvider } from "@elevenlabs/react";
 
 interface MainLayoutWrapperProps {
   children: React.ReactNode;
@@ -31,7 +30,7 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
           const clone = response.clone();
           try {
             const body = await clone.json();
-            if (body && (body.detail === "Invalid or expired token." || (typeof body.detail === "string" && body.detail.toLowerCase().includes("token")))) {
+            if (body && (body.detail === "Invalid or expired token." || body.detail === "Not authenticated" || (typeof body.detail === "string" && (body.detail.toLowerCase().includes("token") || body.detail.toLowerCase().includes("not authenticated"))))) {
               localStorage.removeItem("token");
               localStorage.removeItem("customer_id");
               localStorage.removeItem("name");
@@ -61,7 +60,6 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
   }, []);
 
   return (
-    <ConversationProvider>
       <div className="flex min-h-screen bg-white">
         <div className={`flex-1 flex flex-col min-h-screen ${isHomepage ? "" : "lg:pr-[400px]"}`}>
           <AnnouncementBar />
@@ -73,6 +71,5 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
         <RightSidebar />
         <PincodeModal />
       </div>
-    </ConversationProvider>
   );
 }

@@ -4,6 +4,12 @@ const getBaseUrl = () => {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
+const vendorId = (): string => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("vendor_id") || "vendor_test3";
+  }
+  return "vendor_test3";
+}
 
 export function getStoredVendorId(): string {
   if (typeof window !== "undefined") {
@@ -276,4 +282,46 @@ export async function updateUserProfile(profileData: {
 
   return response;
 }
+
+export async function createAgentSession() {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const response = await fetch(`${cleanBase}/agent/session`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      vendor_id: vendorId(),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to create agent session: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function sendAgentChatMessage(sessionId: string, message: string, signal?: AbortSignal) {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const response = await fetch(`${cleanBase}/agent/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      session_id: sessionId,
+      message: message,
+      vendor_id: vendorId(),
+    }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to send message: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 

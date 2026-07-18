@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -10,9 +10,35 @@ import {
 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
-import { ConversationProvider, useConversation } from "@elevenlabs/react";
-import { fetchProductsFromAgent, mapApiProductToProduct } from "@/utils/api";
+import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sendAgentChatMessage } from "@/utils/api";
 import { Product } from "@/types";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+function stripMarkdown(mdText: string): string {
+  if (!mdText) return "";
+  return mdText
+    // Remove headers
+    .replace(/^#+\s+/gm, "")
+    // Remove bold/italic formatting
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    // Remove code blocks and inline code
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    // Remove links [text](url) -> text
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+    // Remove images ![alt](url) -> ""
+    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, "")
+    // Remove blockquotes
+    .replace(/^\s*>\s+/gm, "")
+    // Remove bullet points/numbered lists
+    .replace(/^\s*[\*\+-]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    // Collapse extra whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function VoiceAssistantSidebarPanel() {
   const router = useRouter();
@@ -22,161 +48,23 @@ function VoiceAssistantSidebarPanel() {
   const clearCartStore = useCartStore((s) => s.clearCart);
 
   const [textCommand, setTextCommand] = useState("");
-  const [agentId] = useState<string>(process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "agent_9601kx436kwwe6b8bfb6f08wqn9g");
   const products = useCartStore((s) => s.products);
   const setProducts = useCartStore((s) => s.setProducts);
 
-  const { startSession, endSession, status } = useConversation({
-    onConnect: () => {
-      console.log("Conversation connected");
-      toast.success("Voice Agent connected");
-    },
-    onDisconnect: () => {
-      console.log("Conversation disconnected");
-    },
-    onError: (error) => {
-      console.error("Conversation error:", error);
-      toast.error("Agent encountered an error");
-    },
-    clientTools: {
-      navigate: async (params: { page?: string; url?: string; path?: string; destination?: string }) => {
-        const page = params.page || params.url || params.path || params.destination || "";
-        const normalizedPage = page.toLowerCase().trim();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-        if (normalizedPage.includes("home") || normalizedPage === "/" || normalizedPage === "index") {
-          router.push("/");
-          toast.success("Agent navigated to Home");
-          return "Navigated to home page";
-        } else if (normalizedPage.includes("shop") || normalizedPage.includes("product") || normalizedPage.includes("store") || normalizedPage === "/products") {
-          router.push("/products");
-          toast.success("Agent navigated to Shop");
-          return "Navigated to shop page";
-        } else if (normalizedPage.includes("cart") || normalizedPage === "/cart") {
-          router.push("/cart");
-          toast.success("Agent opened cart");
-          return "Opened shopping cart";
-        } else if (normalizedPage.includes("checkout") || normalizedPage === "/checkout") {
-          router.push("/checkout");
-          toast.success("Agent navigated to Checkout");
-          return "Navigated to checkout page";
-        } else if (normalizedPage.includes("wishlist") || normalizedPage === "/wishlist") {
-          router.push("/wishlist");
-          toast.success("Agent navigated to Wishlist");
-          return "Navigated to wishlist page";
-        } else if (normalizedPage.includes("account") || normalizedPage.includes("profile") || normalizedPage === "/account") {
-          router.push("/account");
-          toast.success("Agent navigated to Account");
-          return "Navigated to account page";
-        }
-        return `Page ${page} not recognized. Choose home, shop, cart, checkout, wishlist, or account.`;
-      },
-      searchProducts: async (params: { query: string }) => {
-        if (typeof window !== "undefined" && window.location.pathname !== "/products") {
-          router.push("/products");
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-        const query = params.query || "";
-        const res = await fetchProductsFromAgent({ limit: 100, offset: 0, search: query });
-        console.log("search res", res);
-        const mapped = (res?.data || []).map(mapApiProductToProduct);
-        console.log(mapped, 'mapeddata');
-        setProducts(mapped);
-        toast.success(`Agent searched for "${query}"`);
-        return `Searched for products matching "${query}"`;
-      },
-      addProductToCart: async (params: { productName: string, quantity: number }) => {
-        const productName = params.productName || "";
-        const quantity = params.quantity || 1;
-        const searchName = productName.toLowerCase().trim();
-        const liveProducts = useCartStore.getState().products;
-        const matchedProduct = liveProducts.find((p) =>
-          p.name.toLowerCase().includes(searchName)
-        );
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<{ id: string; sender: "user" | "agent"; text: string }[]>([]);
+  const [isAgentActive, setIsAgentActive] = useState(false);
+  const isAgentActiveRef = useRef(false);
 
-        if (matchedProduct) {
-          addItem(matchedProduct, quantity || 1);
-          toast.success(`Agent added ${matchedProduct.name} to Cart`);
-          return `Successfully added ${matchedProduct.name} to cart`;
-        } else {
-          toast.error(`Agent couldn't find "${productName}"`);
-          return `Failed: Product "${productName}" not found in our catalog`;
-        }
-      },
-      removeProductToCart: async (params: { productName: string, quantity: number }) => {
-        const productName = params.productName || "";
-        const searchName = productName.toLowerCase().trim();
-        const liveProducts = useCartStore.getState().items;
-        console.log(liveProducts, 'live cart product in remove product function');
-        console.log(searchName, 'search name in remove product function');
-        const matchedProduct = liveProducts.find((p) =>
-          p.product.name.toLowerCase().includes(searchName)
-        );
-        console.log(matchedProduct, 'matched product in remove product function');
-        if (matchedProduct) {
-          removeItem(matchedProduct.product.id);
-          toast.success(`Agent removed ${matchedProduct.product.name} from Cart`);
-          return `Successfully removed ${matchedProduct.product.name} from cart`;
-        } else {
-          toast.error(`Agent couldn't find "${productName}"`);
-          return `Failed: Product "${productName}" not found in our catalog`;
-        }
-      },
-      updateCartQuantity: async (params: { productName: string, quantity: number }) => {
-        const productName = params.productName || "";
-        const quantity = params.quantity || 1;
-        const searchName = productName.toLowerCase().trim();
-        const liveProducts = useCartStore.getState().items;
-        console.log(liveProducts, 'live cart product in update quantity function');
-        console.log(searchName, 'search name in update quantity function');
-        const matchedProduct = liveProducts.find((p) =>
-          p.product.name.toLowerCase().includes(searchName)
-        );
-        console.log(matchedProduct, 'matched product in update quantity function');
-        if (matchedProduct) {
-          updateQuantity(matchedProduct.product.id, quantity || 1);
-          toast.success(`Agent updated ${matchedProduct.product.name} to Cart`);
-          return `Successfully updated ${matchedProduct.product.name} to cart`;
-        } else {
-          toast.error(`Agent couldn't find "${productName}"`);
-          return `Failed: Product "${productName}" not found in our catalog`;
-        }
-      },
-
-      clearCart: async () => {
-        clearCartStore();
-        toast.info("Agent cleared the cart");
-        return "Successfully cleared all items from the cart";
-      },
-      scroll: async (params: { direction: string }) => {
-        const direction = params.direction || "";
-        const scrollAmount = direction === "down" ? window.innerHeight * 0.6 : -window.innerHeight * 0.6;
-        window.scrollBy({ top: scrollAmount, behavior: "smooth" });
-        return `Successfully scrolled ${direction}`;
-      },
-      loadMoreProducts: async (params: { page: number }) => {
-        const res = await fetchProductsFromAgent({ limit: 15, offset: 0, search: '', page: params?.page || 2 });
-        const mapped = (res?.data || []).map(mapApiProductToProduct);
-        setProducts(mapped);
-        toast.success(`Agent loaded more products`);
-        return `Successfully loaded more products`;
-      },
-      proceedToCheckout: async () => {
-        const cartItems = useCartStore.getState().items;
-        if (cartItems.length === 0) {
-          toast.error("Your cart is empty. Add items before checking out.");
-          return "Failed to proceed to checkout: Cart is empty";
-        }
-        router.push("/checkout");
-        toast.success("Agent proceeding to checkout");
-        return "Successfully navigated to the checkout page";
-      },
-    }
-  });
-
-  const handleTextSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!textCommand.trim()) return;
-    const command = textCommand.trim().toLowerCase();
+  const executeCommand = (commandText: string) => {
+    if (!commandText.trim()) return;
+    const command = commandText.trim().toLowerCase();
 
     if (command.includes("go to home") || command.includes("go home") || command === "home") {
       router.push("/");
@@ -223,80 +111,279 @@ function VoiceAssistantSidebarPanel() {
     } else {
       toast.error(`Command not recognized: "${command}"`);
     }
+  };
 
+  async function startRecording() {
+    if (!isAgentActiveRef.current) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Safari prefers audio/mp4, Chrome/Firefox prefer audio/webm
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm' : 'audio/mp4';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      chunksRef.current = [];
+      mediaRecorder.ondataavailable = e => chunksRef.current.push(e.data);
+      mediaRecorder.start();
+      setIsRecording(true);
+
+      // Auto-stop recording after 8 seconds
+      recordingTimeoutRef.current = setTimeout(() => {
+        stopRecording();
+      }, 8000);
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      toast.error("Failed to access microphone. Please check permissions.");
+      setIsAgentActive(false);
+      isAgentActiveRef.current = false;
+    }
+  }
+
+  async function stopRecording() {
+    const mediaRecorder = mediaRecorderRef.current;
+    if (!mediaRecorder) return;
+
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+
+    setIsRecording(false);
+    setIsTranscribing(true);
+
+    try {
+      mediaRecorder.stop();
+      // Wait for a short moment to let the media recorder stop fully and data to be pushed
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
+
+      const formData = new FormData();
+      formData.append("audio_file", audioBlob, "audio.webm");
+
+      const res = await fetch("/demo/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to transcribe audio");
+      }
+
+      const { text } = await res.json();
+      if (text && text.trim()) {
+        setTextCommand(text);
+
+        // Add user query to messages list
+        const userMsgId = Date.now().toString();
+        setMessages(prev => [...prev, { id: userMsgId, sender: "user", text }]);
+
+        // Get current sessionId or use stored one
+        const activeSessionId = sessionId || localStorage.getItem("agent_session_id");
+
+        // AbortController for timeout on the chat API call
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        let replyText = "";
+        try {
+          const chatData = await sendAgentChatMessage(
+            activeSessionId || "fallback_session",
+            text,
+            controller.signal
+          );
+          clearTimeout(timeoutId);
+          replyText = chatData.response || chatData.reply || chatData.text || (chatData.data && (chatData.data.response || chatData.data.reply || chatData.data.text)) || "I'm sorry, I couldn't understand that.";
+        } catch (chatErr: any) {
+          clearTimeout(timeoutId);
+          if (chatErr.name === 'AbortError') {
+            replyText = "The agent request timed out. Please try again.";
+          } else {
+            replyText = "Sorry, I had trouble reaching the agent.";
+          }
+        }
+
+        // Add agent response to messages list
+        const agentMsgId = (Date.now() + 1).toString();
+        setMessages(prev => [...prev, { id: agentMsgId, sender: "agent", text: replyText }]);
+
+        // Convert response text to voice and play it
+        let hasPlayedAudio = false;
+        try {
+          const ttsRes = await fetch("/demo/api/tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text: stripMarkdown(replyText) }),
+          });
+
+          if (ttsRes.ok) {
+            const audioBlob = await ttsRes.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            hasPlayedAudio = true;
+            audio.onended = () => {
+              if (isAgentActiveRef.current) {
+                startRecording();
+              }
+            };
+            audio.play();
+          }
+        } catch (ttsErr) {
+          console.error("Failed to generate or play TTS response:", ttsErr);
+        }
+
+        // If audio playback failed to set up or start, immediately resume recording loop
+        if (!hasPlayedAudio && isAgentActiveRef.current) {
+          startRecording();
+        }
+
+        // Also check if text has matching shop commands to trigger navigation or action
+        executeCommand(text);
+
+      } else {
+        toast.error("No speech detected. Try speaking closer to the microphone.");
+        // Resume recording loop
+        if (isAgentActiveRef.current) {
+          startRecording();
+        }
+      }
+    } catch (error: any) {
+      console.error("Error transcribing:", error);
+      toast.error(error.message || "Error processing voice command.");
+      // Resume recording loop on error
+      if (isAgentActiveRef.current) {
+        startRecording();
+      }
+    } finally {
+      setIsTranscribing(false);
+      if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      }
+    }
+  }
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!textCommand.trim()) return;
+    executeCommand(textCommand);
     setTextCommand("");
   };
 
-  const handleToggleSession = async () => {
-    if (isConnected) {
-      await endSession();
-      toast.info("Conversation ended");
-    } else {
-      if (!agentId) {
-        toast.error("Please configure NEXT_PUBLIC_ELEVENLABS_AGENT_ID in .env first.");
-        return;
+  const handleToggleRecording = async () => {
+    if (isAgentActive) {
+      setIsAgentActive(false);
+      isAgentActiveRef.current = false;
+      if (isRecording) {
+        await stopRecording();
       }
+    } else {
+      setIsAgentActive(true);
+      isAgentActiveRef.current = true;
       try {
-        toast.info("Connecting to Voice Agent...");
-        await startSession({ agentId });
+        setIsTranscribing(true);
+        let activeSessionId = sessionId || localStorage.getItem("agent_session_id");
+
+        if (!activeSessionId) {
+          try {
+            const sessionData = await createAgentSession();
+            activeSessionId = sessionData.session_id || sessionData.id || (sessionData.data && (sessionData.data.session_id || sessionData.data.id));
+            if (activeSessionId) {
+              setSessionId(activeSessionId);
+              localStorage.setItem("agent_session_id", activeSessionId);
+            }
+          } catch (sessionErr) {
+            console.error("Error creating agent session:", sessionErr);
+          }
+        }
+
+        setIsTranscribing(false);
+        await startRecording();
       } catch (err) {
-        console.error("Failed to start session:", err);
-        toast.error("Failed to start Agent session. Check microphone permissions.");
+        console.error("Failed to start recording:", err);
+        toast.error("Failed to access microphone. Please check permissions.");
+        setIsTranscribing(false);
+        setIsAgentActive(false);
+        isAgentActiveRef.current = false;
       }
     }
   };
 
-
-
-  const isConnected = status === "connected";
-  const isConnecting = status === "connecting";
-
   return (
     <div className="flex-1 flex flex-col p-6 overflow-y-auto select-none bg-white custom-scrollbar">
-      {/* Visualizer & Status */}
-      <div className="bg-[#f8f9fa] rounded-2xl p-6 flex flex-col items-center justify-center min-h-[120px] border border-gray-100 mb-5 transition-all duration-300">
-        {isConnected ? (
-          <div className="flex items-center gap-1.5 h-6 mb-3">
-            <span className="w-1 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-            <span className="w-1 h-5 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
-            <span className="w-1 h-4 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
-            <span className="w-1 h-5 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
-            <span className="w-1 h-2 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "600ms" }}></span>
+      {/* Chat Messages Window */}
+      <div className="flex-1 min-h-[220px] overflow-y-auto mb-5 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col gap-3 custom-scrollbar">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 py-8">
+            <Sparkles className="w-8 h-8 text-[#0da487]/40 mb-2 animate-pulse" />
+            <p className="text-xs font-bold text-gray-500">Conversational Voice Agent</p>
+            <p className="text-[10px] text-gray-400 max-w-[180px] mt-1">Start the agent and talk to ask questions or navigate the site.</p>
           </div>
-        ) : isConnecting ? (
-          <div className="w-8 h-8 rounded-full border-2 border-[#0da487] border-t-transparent animate-spin mb-3"></div>
         ) : (
-          <MicOff size={32} className="text-gray-400 mb-3" />
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex flex-col max-w-[85%] ${msg.sender === "user" ? "self-end items-end" : "self-start items-start"
+                }`}
+            >
+              <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5 px-1">
+                {msg.sender === "user" ? "You" : "Agent"}
+              </span>
+              <div
+                className={`px-3.5 py-2.5 rounded-2xl text-xs shadow-sm leading-relaxed ${msg.sender === "user"
+                  ? "bg-[#0da487] text-white rounded-tr-none"
+                  : "bg-white text-gray-700 border border-gray-100 rounded-tl-none markdown-body"
+                  }`}
+              >
+                {msg.sender === "user" ? (
+                  msg.text
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.text}
+                  </ReactMarkdown>
+                )}
+              </div>
+            </div>
+          ))
         )}
-
-        <p className="text-xs text-gray-500 font-medium text-center">
-          {isConnected
-            ? "Connected! Talk to the agent."
-            : isConnecting
-              ? "Establishing connection..."
-              : "Click 'Start Voice' to speak to Agent"}
-        </p>
       </div>
 
       {/* Connection & Action */}
-      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3 mb-5">
+      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3.5 mb-5 bg-white">
         <button
-          onClick={handleToggleSession}
-          className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold cursor-pointer transition-all active:scale-95 ${isConnected
-            ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
+          onClick={handleToggleRecording}
+          className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold cursor-pointer transition-all active:scale-95 ${isAgentActive
+            ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 animate-pulse"
             : "bg-[#0da487]/10 text-[#0da487] hover:bg-[#0da487]/20"
             }`}
         >
-          {isConnected ? "Stop Agent Session" : "Start Voice Agent"}
+          {isAgentActive ? "Stop Agent" : "Start Agent"}
         </button>
 
-        <span className="text-[10px] text-gray-400 font-bold uppercase bg-gray-100 px-2.5 py-1 rounded tracking-wider">
-          EFRESH AGENT
-        </span>
+        {/* Agent Animation / Status Area */}
+        <div className="flex items-center gap-3">
+          {isRecording ? (
+            <div className="flex items-center gap-1 h-4">
+              <span className="w-0.5 h-2 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+              <span className="w-0.5 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+              <span className="w-0.5 h-2 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+              <span className="w-0.5 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
+            </div>
+          ) : isTranscribing ? (
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-[#0da487] border-t-transparent animate-spin"></div>
+          ) : null}
+
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+            {isRecording ? "Listening..." : isTranscribing ? "Thinking..." : "Agent Idle"}
+          </span>
+        </div>
       </div>
 
       {/* Command input */}
-      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[#0da487] transition-all">
+      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[#0da487] transition-all" style={{ display: 'none' }}>
         <input
           type="text"
           value={textCommand}
@@ -314,7 +401,7 @@ function VoiceAssistantSidebarPanel() {
       </form>
 
       {/* Guide */}
-      <div className="flex-1 text-left">
+      <div className="flex-1 text-left" style={{ display: 'none' }}>
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1 mb-3">
           <HelpCircle size={12} /> TRY SAYING:
         </span>
@@ -408,7 +495,7 @@ export default function RightSidebar() {
   return (
     <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[400px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-2xl overflow-hidden font-sans">
       {/* TOP HALF: CART */}
-      <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
+      <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden" style={{ display: 'none' }}>
         {/* Cart Header */}
         <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#eceff1] bg-white">
           <div className="flex items-center gap-2.5">
@@ -516,7 +603,7 @@ export default function RightSidebar() {
       </div>
 
       {/* BOTTOM HALF: VOICE ASSISTANT */}
-      <div className="h-1/2 flex flex-col overflow-hidden bg-white">
+      <div className="flex-1 flex flex-col overflow-hidden bg-white">
         {/* Voice Header with solid teal background like the screenshot */}
         <div className="flex items-center justify-between px-6 py-4 bg-[#0da487] text-white">
           <div className="flex items-center gap-2.5">
@@ -547,6 +634,6 @@ export default function RightSidebar() {
           background: #cbd5e1;
         }
       `}</style>
-    </aside>
+    </aside >
   );
 }
