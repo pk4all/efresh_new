@@ -46,6 +46,7 @@ function VoiceAssistantSidebarPanel() {
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCartStore = useCartStore((s) => s.clearCart);
+  const syncCartWithDb = useCartStore((s) => s.syncCartWithDb);
 
   const [textCommand, setTextCommand] = useState("");
   const products = useCartStore((s) => s.products);
@@ -61,8 +62,13 @@ function VoiceAssistantSidebarPanel() {
   const [messages, setMessages] = useState<{ id: string; sender: "user" | "agent"; text: string }[]>([]);
   const [isAgentActive, setIsAgentActive] = useState(false);
   const isAgentActiveRef = useRef(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  const executeCommand = (commandText: string) => {
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const executeCommand = async (commandText: string) => {
     if (!commandText.trim()) return;
     const command = commandText.trim().toLowerCase();
 
@@ -100,7 +106,19 @@ function VoiceAssistantSidebarPanel() {
       if (match && match[1]) {
         const searchName = match[1].toLowerCase().trim();
         const liveProducts = useCartStore.getState().products;
-        const matchedProduct = liveProducts.find((p) => p.name.toLowerCase().includes(searchName));
+        let matchedProduct = liveProducts.find((p) => p.name.toLowerCase().includes(searchName));
+
+        if (!matchedProduct) {
+          try {
+            const searchRes = await fetchProductsFromAgent({ search: searchName, limit: 1 });
+            if (searchRes && searchRes.data && searchRes.data.length > 0) {
+              matchedProduct = mapApiProductToProduct(searchRes.data[0]);
+            }
+          } catch (e) {
+            console.error("Failed to fetch product from agent search", e);
+          }
+        }
+
         if (matchedProduct) {
           addItem(matchedProduct, 1);
           toast.success(`Added ${matchedProduct.name} to Cart`);
@@ -185,7 +203,7 @@ function VoiceAssistantSidebarPanel() {
 
         // AbortController for timeout on the chat API call
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
         let replyText = "";
         try {
@@ -221,6 +239,7 @@ function VoiceAssistantSidebarPanel() {
           });
 
           if (ttsRes.ok) {
+            await syncCartWithDb();
             const audioBlob = await ttsRes.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
@@ -242,7 +261,7 @@ function VoiceAssistantSidebarPanel() {
         }
 
         // Also check if text has matching shop commands to trigger navigation or action
-        executeCommand(text);
+        await executeCommand(text);
 
       } else {
         toast.error("No speech detected. Try speaking closer to the microphone.");
@@ -301,7 +320,41 @@ function VoiceAssistantSidebarPanel() {
         }
 
         setIsTranscribing(false);
-        await startRecording();
+
+        // Add welcome message to visual chat window
+        const welcomeText = "Hello! I am your eFresh Voice Assistant. How can I help you today?";
+        setMessages(prev => [...prev, { id: `welcome_${Date.now()}`, sender: "agent", text: welcomeText }]);
+
+        // Convert welcome message to voice and play it, then start recording
+        let welcomePlayed = false;
+        try {
+          const welcomeTtsRes = await fetch("/demo/api/tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text: welcomeText }),
+          });
+
+          if (welcomeTtsRes.ok) {
+            const audioBlob = await welcomeTtsRes.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            welcomePlayed = true;
+            audio.onended = () => {
+              if (isAgentActiveRef.current) {
+                startRecording();
+              }
+            };
+            audio.play();
+          }
+        } catch (ttsErr) {
+          console.error("Welcome TTS playback error:", ttsErr);
+        }
+
+        if (!welcomePlayed && isAgentActiveRef.current) {
+          await startRecording();
+        }
       } catch (err) {
         console.error("Failed to start recording:", err);
         toast.error("Failed to access microphone. Please check permissions.");
@@ -349,6 +402,7 @@ function VoiceAssistantSidebarPanel() {
             </div>
           ))
         )}
+        <div ref={chatEndRef} />
       </div>
 
       {/* Connection & Action */}
@@ -495,7 +549,7 @@ export default function RightSidebar() {
   return (
     <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[400px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-2xl overflow-hidden font-sans">
       {/* TOP HALF: CART */}
-      <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden" style={{ display: 'none' }}>
+      <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
         {/* Cart Header */}
         <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#eceff1] bg-white">
           <div className="flex items-center gap-2.5">
@@ -603,7 +657,7 @@ export default function RightSidebar() {
       </div>
 
       {/* BOTTOM HALF: VOICE ASSISTANT */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white">
+      <div className="h-1/2 flex flex-col overflow-hidden bg-white">
         {/* Voice Header with solid teal background like the screenshot */}
         <div className="flex items-center justify-between px-6 py-4 bg-[#0da487] text-white">
           <div className="flex items-center gap-2.5">
