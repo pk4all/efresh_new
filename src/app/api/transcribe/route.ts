@@ -25,6 +25,8 @@ export async function POST(req: Request) {
     const elevenLabsFormData = new FormData();
     elevenLabsFormData.append("file", audioFile);
     elevenLabsFormData.append("model_id", "scribe_v2");
+    elevenLabsFormData.append("language", "en");
+    elevenLabsFormData.append("filter_background_audio", "true");
 
     const response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
       method: "POST",

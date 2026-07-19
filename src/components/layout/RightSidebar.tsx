@@ -9,6 +9,7 @@ import {
   Sparkles, Mic, MicOff, Send, HelpCircle, Search, Keyboard
 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
+import { useAgentStore } from "@/store/agentStore";
 import { toast } from "sonner";
 import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sendAgentChatMessage } from "@/utils/api";
 import { Product } from "@/types";
@@ -58,15 +59,61 @@ function VoiceAssistantSidebarPanel() {
 
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<{ id: string; sender: "user" | "agent"; text: string }[]>([]);
-  const [isAgentActive, setIsAgentActive] = useState(false);
-  const isAgentActiveRef = useRef(false);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
+  const isAgentActive = useAgentStore((s) => s.isAgentActive);
+  const setIsAgentActive = useAgentStore((s) => s.setIsAgentActive);
+  const sessionId = useAgentStore((s) => s.sessionId);
+  const setSessionId = useAgentStore((s) => s.setSessionId);
+  const messages = useAgentStore((s) => s.messages);
+  const setMessages = useAgentStore((s) => s.setMessages);
+
+  const isAgentActiveRef = useRef(isAgentActive);
+  const isPlayingTtsRef = useRef(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Sync ref with store state
+  useEffect(() => {
+    isAgentActiveRef.current = isAgentActive;
+  }, [isAgentActive]);
+
+  // Scroll to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Cleanup active audio recorder/timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.error("Cleanup error stopping MediaRecorder:", e);
+        }
+      }
+      if (mediaRecorderRef.current?.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // Resume recording loop if page transitions and agent is supposed to be active
+  useEffect(() => {
+    if (isAgentActive) {
+      const resumeTimer = setTimeout(() => {
+        // Only start if it's active and not currently doing anything
+        if (isAgentActiveRef.current && !isRecording && !isTranscribing) {
+          startRecording();
+        }
+      }, 500);
+      return () => clearTimeout(resumeTimer);
+    }
+  }, [isAgentActive]);
 
   const executeCommand = async (commandText: string) => {
     if (!commandText.trim()) return;
@@ -132,7 +179,7 @@ function VoiceAssistantSidebarPanel() {
   };
 
   async function startRecording() {
-    if (!isAgentActiveRef.current) return;
+    if (!isAgentActiveRef.current || isPlayingTtsRef.current || isTranscribing) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       // Safari prefers audio/mp4, Chrome/Firefox prefer audio/webm
@@ -146,10 +193,10 @@ function VoiceAssistantSidebarPanel() {
       mediaRecorder.start();
       setIsRecording(true);
 
-      // Auto-stop recording after 8 seconds
+      // Auto-stop recording after 4 seconds
       recordingTimeoutRef.current = setTimeout(() => {
         stopRecording();
-      }, 8000);
+      }, 4000);
     } catch (err) {
       console.error("Failed to start recording:", err);
       toast.error("Failed to access microphone. Please check permissions.");
@@ -161,6 +208,7 @@ function VoiceAssistantSidebarPanel() {
   async function stopRecording() {
     const mediaRecorder = mediaRecorderRef.current;
     if (!mediaRecorder) return;
+    let shouldTerminateAfterTts = false;
 
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
@@ -190,6 +238,7 @@ function VoiceAssistantSidebarPanel() {
         throw new Error(errData.error || "Failed to transcribe audio");
       }
 
+      if (!isAgentActiveRef.current) return;
       const { text } = await res.json();
       if (text && text.trim()) {
         setTextCommand(text);
@@ -203,7 +252,8 @@ function VoiceAssistantSidebarPanel() {
 
         // AbortController for timeout on the chat API call
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        chatAbortControllerRef.current = controller;
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         let replyText = "";
         try {
@@ -213,7 +263,50 @@ function VoiceAssistantSidebarPanel() {
             controller.signal
           );
           clearTimeout(timeoutId);
+          chatAbortControllerRef.current = null;
+          if (!isAgentActiveRef.current) return;
           replyText = chatData.response || chatData.reply || chatData.text || (chatData.data && (chatData.data.response || chatData.data.reply || chatData.data.text)) || "I'm sorry, I couldn't understand that.";
+          console.log(chatData, 'api response')
+          let action = chatData?.data?.action || '';
+          console.log(action, 'action');
+          if (action == 'searchProducts') {
+            const products = chatData?.data?.products;
+            console.log(products, 'products');
+            if (products?.length > 0) {
+              const mapped = (products || []).map(mapApiProductToProduct);
+              setProducts(mapped);
+            }
+          }
+          if (action == 'thank') {
+            shouldTerminateAfterTts = true;
+          }
+          if (action == 'GoToCart') {
+            await syncCartWithDb();
+          }
+          if (action == 'Home') {
+            router.push('/');
+          }
+          if (action == 'product') {
+            router.push('/products');
+          }
+          if (action == 'account') {
+            router.push('/account');
+          }
+          if (action == 'wishlist') {
+            router.push('/account?tab=wishlist');
+          }
+          if (action == 'account/orders') {
+            router.push('/account?tab=order');
+          }
+          if (action == 'account/address') {
+            router.push('/account?tab=address');
+          }
+          if (action == 'account/profile') {
+            router.push('/account?tab=profile');
+          }
+          if (action == 'checkout') {
+            router.push('/checkout');
+          }
         } catch (chatErr: any) {
           clearTimeout(timeoutId);
           if (chatErr.name === 'AbortError') {
@@ -239,13 +332,19 @@ function VoiceAssistantSidebarPanel() {
           });
 
           if (ttsRes.ok) {
-            await syncCartWithDb();
             const audioBlob = await ttsRes.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
+            activeAudioRef.current = audio;
             hasPlayedAudio = true;
+            isPlayingTtsRef.current = true;
             audio.onended = () => {
-              if (isAgentActiveRef.current) {
+              activeAudioRef.current = null;
+              isPlayingTtsRef.current = false;
+              if (shouldTerminateAfterTts) {
+                setIsAgentActive(false);
+                isAgentActiveRef.current = false;
+              } else if (isAgentActiveRef.current) {
                 startRecording();
               }
             };
@@ -257,7 +356,12 @@ function VoiceAssistantSidebarPanel() {
 
         // If audio playback failed to set up or start, immediately resume recording loop
         if (!hasPlayedAudio && isAgentActiveRef.current) {
-          startRecording();
+          if (shouldTerminateAfterTts) {
+            setIsAgentActive(false);
+            isAgentActiveRef.current = false;
+          } else {
+            startRecording();
+          }
         }
 
         // Also check if text has matching shop commands to trigger navigation or action
@@ -296,9 +400,44 @@ function VoiceAssistantSidebarPanel() {
     if (isAgentActive) {
       setIsAgentActive(false);
       isAgentActiveRef.current = false;
-      if (isRecording) {
-        await stopRecording();
+
+      // Stop the media recorder immediately and cleanup without processing a final response
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
       }
+      setIsRecording(false);
+      setIsTranscribing(false);
+
+      if (mediaRecorderRef.current) {
+        if (mediaRecorderRef.current.state !== "inactive") {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch (e) {
+            console.error("Error stopping recorder on toggle:", e);
+          }
+        }
+        if (mediaRecorderRef.current.stream) {
+          mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        }
+      }
+
+      // Abort any ongoing chat API call
+      if (chatAbortControllerRef.current) {
+        chatAbortControllerRef.current.abort();
+        chatAbortControllerRef.current = null;
+      }
+
+      // Stop any ongoing welcome/response TTS audio playback
+      if (activeAudioRef.current) {
+        try {
+          activeAudioRef.current.pause();
+        } catch (e) {
+          console.error("Error pausing active audio:", e);
+        }
+        activeAudioRef.current = null;
+      }
+      isPlayingTtsRef.current = false;
     } else {
       setIsAgentActive(true);
       isAgentActiveRef.current = true;
@@ -340,8 +479,12 @@ function VoiceAssistantSidebarPanel() {
             const audioBlob = await welcomeTtsRes.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
+            activeAudioRef.current = audio;
             welcomePlayed = true;
+            isPlayingTtsRef.current = true;
             audio.onended = () => {
+              activeAudioRef.current = null;
+              isPlayingTtsRef.current = false;
               if (isAgentActiveRef.current) {
                 startRecording();
               }
