@@ -297,7 +297,15 @@ export async function createAgentSession() {
     }),
   });
   if (!response.ok) {
-    throw new Error(`Failed to create agent session: ${response.statusText}`);
+    let errMsg = `Failed to create agent session: ${response.statusText}`;
+    try {
+      const errData = await response.json();
+      errMsg = errData.message || errData.error || errData.detail || errMsg;
+      console.log(errMsg, 'session api error');
+    } catch (_) {
+
+    }
+    throw new Error(errMsg);
   }
   return response.json();
 }
@@ -319,7 +327,12 @@ export async function sendAgentChatMessage(sessionId: string, message: string, s
     signal,
   });
   if (!response.ok) {
-    throw new Error(`Failed to send message: ${response.statusText}`);
+    let errMsg = `Failed to send message: ${response.statusText}`;
+    try {
+      const errData = await response.json();
+      errMsg = errData.message || errData.error || errMsg;
+    } catch (_) { }
+    throw new Error(errMsg);
   }
   return response.json();
 }

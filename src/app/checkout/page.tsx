@@ -47,6 +47,7 @@ export default function CheckoutPage() {
       if (params.get("status") === "success") {
         setSuccess(true);
         clearCart();
+        localStorage.removeItem("agent_session_id");
       } else if (params.get("status") === "cancel") {
         toast.error("Payment session was cancelled. Please try again.");
       }

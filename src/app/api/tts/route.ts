@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     }
 
     // ElevenLabs Rachel Voice ID
-    const voiceId = "pg7Nd5b8Y3tnfSndq5lh";
+    //const voiceId = "pg7Nd5b8Y3tnfSndq5lh";
+    const voiceId = 'LtPsVjX1k0Kl4StEMZPK';
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
       {

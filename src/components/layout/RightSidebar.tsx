@@ -53,12 +53,10 @@ function VoiceAssistantSidebarPanel() {
   const products = useCartStore((s) => s.products);
   const setProducts = useCartStore((s) => s.setProducts);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const isAgentActive = useAgentStore((s) => s.isAgentActive);
   const setIsAgentActive = useAgentStore((s) => s.setIsAgentActive);
@@ -66,12 +64,83 @@ function VoiceAssistantSidebarPanel() {
   const setSessionId = useAgentStore((s) => s.setSessionId);
   const messages = useAgentStore((s) => s.messages);
   const setMessages = useAgentStore((s) => s.setMessages);
+  const mediaRecorder = useAgentStore((s) => s.mediaRecorder);
+  const setMediaRecorder = useAgentStore((s) => s.setMediaRecorder);
+  const activeAudio = useAgentStore((s) => s.activeAudio);
+  const setActiveAudio = useAgentStore((s) => s.setActiveAudio);
+  const isTranscribing = useAgentStore((s) => s.isTranscribing);
+  const setIsTranscribing = useAgentStore((s) => s.setIsTranscribing);
 
   const isAgentActiveRef = useRef(isAgentActive);
-  const isPlayingTtsRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatAbortControllerRef = useRef<AbortController | null>(null);
-  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const shouldTerminateAfterTtsRef = useRef(false);
+
+  const terminateWithThankYou = async (errorMessage?: string) => {
+    console.error("Agent terminating due to API/system error:", errorMessage);
+
+    setIsAgentActive(false);
+    isAgentActiveRef.current = false;
+
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+    setIsRecording(false);
+    setIsTranscribing(false);
+
+    const activeRecorder = useAgentStore.getState().mediaRecorder;
+    if (activeRecorder) {
+      if (activeRecorder.state !== "inactive") {
+        try { activeRecorder.stop(); } catch (e) { }
+      }
+      if (activeRecorder.stream) {
+        activeRecorder.stream.getTracks().forEach((t) => t.stop());
+      }
+      setMediaRecorder(null);
+    }
+
+    if (chatAbortControllerRef.current) {
+      chatAbortControllerRef.current.abort();
+      chatAbortControllerRef.current = null;
+    }
+
+    const currentAudio = useAgentStore.getState().activeAudio;
+    if (currentAudio) {
+      try { currentAudio.pause(); } catch (e) { }
+      setActiveAudio(null);
+    }
+
+    let thankYouText = "We are sorry for the inconvenience. Thank you.";
+    if (errorMessage === "Invalid or expired token." || errorMessage?.includes("Invalid or expired token")) {
+      thankYouText = "We are sorry for the inconvenience, Please login first. Thank you.";
+    }
+    const agentMsgId = `err_thank_${Date.now()}`;
+    setMessages(prev => [...prev, { id: agentMsgId, sender: "agent", text: thankYouText }]);
+
+    try {
+      const ttsRes = await fetch("/demo/api/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: thankYouText }),
+      });
+
+      if (ttsRes.ok) {
+        const audioBlob = await ttsRes.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        setActiveAudio(audio);
+        audio.onended = () => {
+          setActiveAudio(null);
+        };
+        audio.play();
+      }
+    } catch (ttsErr) {
+      console.error("Failed to generate or play thank you TTS response:", ttsErr);
+    }
+  };
 
   // Sync ref with store state
   useEffect(() => {
@@ -83,21 +152,11 @@ function VoiceAssistantSidebarPanel() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cleanup active audio recorder/timeouts on unmount
+  // Cleanup recording timeout on unmount
   useEffect(() => {
     return () => {
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (e) {
-          console.error("Cleanup error stopping MediaRecorder:", e);
-        }
-      }
-      if (mediaRecorderRef.current?.stream) {
-        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
@@ -161,8 +220,10 @@ function VoiceAssistantSidebarPanel() {
             if (searchRes && searchRes.data && searchRes.data.length > 0) {
               matchedProduct = mapApiProductToProduct(searchRes.data[0]);
             }
-          } catch (e) {
+          } catch (e: any) {
             console.error("Failed to fetch product from agent search", e);
+            await terminateWithThankYou(e.message || "fetchProductsFromAgent error");
+            return;
           }
         }
 
@@ -174,29 +235,46 @@ function VoiceAssistantSidebarPanel() {
         }
       }
     } else {
-      toast.error(`Command not recognized: "${command}"`);
+      // toast.success(`Command not recognized: "${command}"`);
     }
   };
 
+  // no need this function exicute [End] //
+
+  // Start ne agent.
+
   async function startRecording() {
-    if (!isAgentActiveRef.current || isPlayingTtsRef.current || isTranscribing) return;
+    const currentActiveAudio = useAgentStore.getState().activeAudio;
+    const currentIsTranscribing = useAgentStore.getState().isTranscribing;
+    if (!isAgentActiveRef.current || currentActiveAudio || currentIsTranscribing) return;
+
+    // Stop any existing active recorder
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      try { mediaRecorder.stop(); } catch (e) { }
+    }
+    // Stop any existing playing audio
+    if (activeAudio) {
+      try { activeAudio.pause(); } catch (e) { }
+      setActiveAudio(null);
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       // Safari prefers audio/mp4, Chrome/Firefox prefer audio/webm
       const mimeType = MediaRecorder.isTypeSupported('audio/webm')
         ? 'audio/webm' : 'audio/mp4';
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
+      const recorder = new MediaRecorder(stream, { mimeType });
+      setMediaRecorder(recorder);
 
       chunksRef.current = [];
-      mediaRecorder.ondataavailable = e => chunksRef.current.push(e.data);
-      mediaRecorder.start();
+      recorder.ondataavailable = e => chunksRef.current.push(e.data);
+      recorder.start();
       setIsRecording(true);
 
-      // Auto-stop recording after 4 seconds
+      // Auto-stop recording after 3 seconds
       recordingTimeoutRef.current = setTimeout(() => {
         stopRecording();
-      }, 4000);
+      }, 3000);
     } catch (err) {
       console.error("Failed to start recording:", err);
       toast.error("Failed to access microphone. Please check permissions.");
@@ -206,9 +284,8 @@ function VoiceAssistantSidebarPanel() {
   }
 
   async function stopRecording() {
-    const mediaRecorder = mediaRecorderRef.current;
-    if (!mediaRecorder) return;
-    let shouldTerminateAfterTts = false;
+    const activeRecorder = useAgentStore.getState().mediaRecorder;
+    if (!activeRecorder) return;
 
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
@@ -219,11 +296,17 @@ function VoiceAssistantSidebarPanel() {
     setIsTranscribing(true);
 
     try {
-      mediaRecorder.stop();
+      activeRecorder.stop();
       // Wait for a short moment to let the media recorder stop fully and data to be pushed
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
+      const audioBlob = new Blob(chunksRef.current, { type: activeRecorder.mimeType });
+
+      // Stop all tracks on the stream to turn off the microphone light
+      if (activeRecorder.stream) {
+        activeRecorder.stream.getTracks().forEach(t => t.stop());
+      }
+      setMediaRecorder(null);
 
       const formData = new FormData();
       formData.append("audio_file", audioBlob, "audio.webm");
@@ -253,7 +336,7 @@ function VoiceAssistantSidebarPanel() {
         // AbortController for timeout on the chat API call
         const controller = new AbortController();
         chatAbortControllerRef.current = controller;
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         let replyText = "";
         try {
@@ -267,9 +350,16 @@ function VoiceAssistantSidebarPanel() {
           if (!isAgentActiveRef.current) return;
           replyText = chatData.response || chatData.reply || chatData.text || (chatData.data && (chatData.data.response || chatData.data.reply || chatData.data.text)) || "I'm sorry, I couldn't understand that.";
           console.log(chatData, 'api response')
-          let action = chatData?.data?.action || '';
+          let action = chatData?.data?.action.trim() || '';
+          if (['CartChanged', 'ProductAdded'].includes(action)) {
+            await syncCartWithDb();
+          }
           console.log(action, 'action');
           if (action == 'searchProducts') {
+            if (typeof window !== "undefined" && window.location.pathname !== "/products") {
+              router.push("/products");
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            }
             const products = chatData?.data?.products;
             console.log(products, 'products');
             if (products?.length > 0) {
@@ -277,22 +367,26 @@ function VoiceAssistantSidebarPanel() {
               setProducts(mapped);
             }
           }
-          if (action == 'thank') {
-            shouldTerminateAfterTts = true;
+          //'none',
+          if (['thanks'].includes(action)) {
+            //setIsAgentActive(false);
+            //isAgentActiveRef.current = false;
+            shouldTerminateAfterTtsRef.current = true;
+            console.log(shouldTerminateAfterTtsRef.current, 'shouldTerminateAfterTtsRef.current')
           }
-          if (action == 'GoToCart') {
-            await syncCartWithDb();
+          if (action == 'GotoCart' || action === 'gotoCart' || action === 'GotoCart') {
+            router.push('/cart');
           }
-          if (action == 'Home') {
+          if (action == 'Home' || action === 'home' || action === 'GotoHome') {
             router.push('/');
           }
-          if (action == 'product') {
+          if (action === 'product' || action === 'Products' || action === 'GotoProduct' || action === 'gotoProduct') {
             router.push('/products');
           }
-          if (action == 'account') {
+          if (action == 'account' || action === 'Account' || action === 'GotoAccount' || action === 'gotoAccount') {
             router.push('/account');
           }
-          if (action == 'wishlist') {
+          if (action == 'wishlist' || action === 'Wishlist' || action === 'GotoWishlist' || action === 'gotoWishlist') {
             router.push('/account?tab=wishlist');
           }
           if (action == 'account/orders') {
@@ -301,19 +395,17 @@ function VoiceAssistantSidebarPanel() {
           if (action == 'account/address') {
             router.push('/account?tab=address');
           }
-          if (action == 'account/profile') {
+          if (action == 'account/profile' || action === 'Account/Profile' || action === 'GotoAccount/Profile' || action === 'gotoAccount/Profile') {
             router.push('/account?tab=profile');
           }
-          if (action == 'checkout') {
+          if (action == 'checkout' || action === 'Checkout' || action === 'GotoCheckout' || action === 'gotoCheckout') {
             router.push('/checkout');
           }
         } catch (chatErr: any) {
           clearTimeout(timeoutId);
-          if (chatErr.name === 'AbortError') {
-            replyText = "The agent request timed out. Please try again.";
-          } else {
-            replyText = "Sorry, I had trouble reaching the agent.";
-          }
+          console.error("Chat API error:", chatErr);
+          await terminateWithThankYou(chatErr.message || "Chat API error");
+          return;
         }
 
         // Add agent response to messages list
@@ -335,37 +427,43 @@ function VoiceAssistantSidebarPanel() {
             const audioBlob = await ttsRes.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            activeAudioRef.current = audio;
+            setActiveAudio(audio);
             hasPlayedAudio = true;
-            isPlayingTtsRef.current = true;
             audio.onended = () => {
-              activeAudioRef.current = null;
-              isPlayingTtsRef.current = false;
-              if (shouldTerminateAfterTts) {
+              setActiveAudio(null);
+              if (shouldTerminateAfterTtsRef.current) {
+                console.log(shouldTerminateAfterTtsRef.current, 'shouldTerminateAfterTtsRef.current 2')
                 setIsAgentActive(false);
                 isAgentActiveRef.current = false;
+                shouldTerminateAfterTtsRef.current = false;
               } else if (isAgentActiveRef.current) {
                 startRecording();
               }
             };
             audio.play();
+          } else {
+            throw new Error("TTS API error");
           }
-        } catch (ttsErr) {
+        } catch (ttsErr: any) {
           console.error("Failed to generate or play TTS response:", ttsErr);
+          await terminateWithThankYou(ttsErr.message || "TTS error");
+          return;
         }
 
         // If audio playback failed to set up or start, immediately resume recording loop
         if (!hasPlayedAudio && isAgentActiveRef.current) {
-          if (shouldTerminateAfterTts) {
+          if (shouldTerminateAfterTtsRef.current) {
+            console.log(shouldTerminateAfterTtsRef.current, 'shouldTerminateAfterTtsRef.current 3')
             setIsAgentActive(false);
             isAgentActiveRef.current = false;
+            shouldTerminateAfterTtsRef.current = false;
           } else {
             startRecording();
           }
         }
 
         // Also check if text has matching shop commands to trigger navigation or action
-        await executeCommand(text);
+        // await executeCommand(text);
 
       } else {
         toast.error("No speech detected. Try speaking closer to the microphone.");
@@ -377,14 +475,11 @@ function VoiceAssistantSidebarPanel() {
     } catch (error: any) {
       console.error("Error transcribing:", error);
       toast.error(error.message || "Error processing voice command.");
-      // Resume recording loop on error
-      if (isAgentActiveRef.current) {
-        startRecording();
-      }
+      await terminateWithThankYou(error.message || "Transcription/Recording error");
     } finally {
       setIsTranscribing(false);
-      if (mediaRecorder.stream) {
-        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      if (activeRecorder && activeRecorder.stream) {
+        activeRecorder.stream.getTracks().forEach(t => t.stop());
       }
     }
   }
@@ -409,17 +504,18 @@ function VoiceAssistantSidebarPanel() {
       setIsRecording(false);
       setIsTranscribing(false);
 
-      if (mediaRecorderRef.current) {
-        if (mediaRecorderRef.current.state !== "inactive") {
+      if (mediaRecorder) {
+        if (mediaRecorder.state !== "inactive") {
           try {
-            mediaRecorderRef.current.stop();
+            mediaRecorder.stop();
           } catch (e) {
             console.error("Error stopping recorder on toggle:", e);
           }
         }
-        if (mediaRecorderRef.current.stream) {
-          mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        if (mediaRecorder.stream) {
+          mediaRecorder.stream.getTracks().forEach((t) => t.stop());
         }
+        setMediaRecorder(null);
       }
 
       // Abort any ongoing chat API call
@@ -429,15 +525,17 @@ function VoiceAssistantSidebarPanel() {
       }
 
       // Stop any ongoing welcome/response TTS audio playback
-      if (activeAudioRef.current) {
+      if (activeAudio) {
         try {
-          activeAudioRef.current.pause();
+          activeAudio.pause();
         } catch (e) {
           console.error("Error pausing active audio:", e);
         }
-        activeAudioRef.current = null;
+        setActiveAudio(null);
       }
-      isPlayingTtsRef.current = false;
+
+      // Reset agent variables
+      // setMessages([]);
     } else {
       setIsAgentActive(true);
       isAgentActiveRef.current = true;
@@ -453,12 +551,12 @@ function VoiceAssistantSidebarPanel() {
               setSessionId(activeSessionId);
               localStorage.setItem("agent_session_id", activeSessionId);
             }
-          } catch (sessionErr) {
+          } catch (sessionErr: any) {
             console.error("Error creating agent session:", sessionErr);
+            await terminateWithThankYou(sessionErr.message || "Session creation error");
+            return;
           }
         }
-
-        setIsTranscribing(false);
 
         // Add welcome message to visual chat window
         const welcomeText = "Hello! I am your eFresh Voice Assistant. How can I help you today?";
@@ -479,23 +577,27 @@ function VoiceAssistantSidebarPanel() {
             const audioBlob = await welcomeTtsRes.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            activeAudioRef.current = audio;
+            setActiveAudio(audio);
             welcomePlayed = true;
-            isPlayingTtsRef.current = true;
+            setIsTranscribing(false);
             audio.onended = () => {
-              activeAudioRef.current = null;
-              isPlayingTtsRef.current = false;
+              setActiveAudio(null);
               if (isAgentActiveRef.current) {
                 startRecording();
               }
             };
             audio.play();
+          } else {
+            throw new Error("Welcome TTS error");
           }
-        } catch (ttsErr) {
+        } catch (ttsErr: any) {
           console.error("Welcome TTS playback error:", ttsErr);
+          await terminateWithThankYou(ttsErr.message || "Welcome TTS error");
+          return;
         }
 
         if (!welcomePlayed && isAgentActiveRef.current) {
+          setIsTranscribing(false);
           await startRecording();
         }
       } catch (err) {
@@ -630,10 +732,17 @@ export default function RightSidebar() {
   const isHomepage = pathname === "/";
   const [showFloatingPanel, setShowFloatingPanel] = useState(false);
 
+  const isAgentActive = useAgentStore((s) => s.isAgentActive);
   const items = useCartStore((s) => s.items);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const total = useCartStore((s) => s.getTotalPrice());
+
+  useEffect(() => {
+    if (isHomepage && isAgentActive) {
+      setShowFloatingPanel(true);
+    }
+  }, [isHomepage, isAgentActive]);
 
   if (isHomepage) {
     return (
