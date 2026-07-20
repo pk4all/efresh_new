@@ -56,7 +56,8 @@ function VoiceAssistantSidebarPanel() {
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isRecording, setIsRecording] = useState(false);
+  const isRecording = useAgentStore((s) => s.isRecording);
+  const setIsRecording = useAgentStore((s) => s.setIsRecording);
 
   const isAgentActive = useAgentStore((s) => s.isAgentActive);
   const setIsAgentActive = useAgentStore((s) => s.setIsAgentActive);

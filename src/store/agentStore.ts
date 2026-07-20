@@ -21,6 +21,8 @@ interface AgentStore {
   setActiveAudio: (audio: HTMLAudioElement | null) => void;
   isTranscribing: boolean;
   setIsTranscribing: (val: boolean) => void;
+  isRecording: boolean;
+  setIsRecording: (val: boolean) => void;
 }
 
 export const useAgentStore = create<AgentStore>((set) => ({
@@ -39,4 +41,6 @@ export const useAgentStore = create<AgentStore>((set) => ({
   setActiveAudio: (audio) => set({ activeAudio: audio }),
   isTranscribing: false,
   setIsTranscribing: (val) => set({ isTranscribing: val }),
+  isRecording: false,
+  setIsRecording: (val) => set({ isRecording: val }),
 }));
