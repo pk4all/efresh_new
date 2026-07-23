@@ -206,7 +206,15 @@
     border-radius: 2px;
   }
 
-  /* Custom overrides for rsuite AuthModal to enable edge-to-edge content */
+  /* Custom overrides for rsuite AuthModal to enable edge-to-edge content & ensure high stacking order */
+  .rs-modal-wrapper {
+    z-index: 100005 !important;
+  }
+
+  .rs-modal-backdrop {
+    z-index: 100000 !important;
+  }
+
   .auth-modal-v2 .rs-modal-content {
     padding: 0 !important;
     border-radius: 16px !important;

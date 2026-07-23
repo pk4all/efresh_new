@@ -13,7 +13,6 @@ interface AgentStore {
   setIsAgentActive: (active: boolean) => void;
   setSessionId: (id: string | null) => void;
   setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
-  
   // Track active recorder and audio instances globally to prevent overlap
   mediaRecorder: MediaRecorder | null;
   setMediaRecorder: (rec: MediaRecorder | null) => void;
@@ -23,6 +22,8 @@ interface AgentStore {
   setIsTranscribing: (val: boolean) => void;
   isRecording: boolean;
   setIsRecording: (val: boolean) => void;
+  isListening: boolean;
+  setIsListening: (val: boolean) => void;
 }
 
 export const useAgentStore = create<AgentStore>((set) => ({
@@ -43,4 +44,6 @@ export const useAgentStore = create<AgentStore>((set) => ({
   setIsTranscribing: (val) => set({ isTranscribing: val }),
   isRecording: false,
   setIsRecording: (val) => set({ isRecording: val }),
+  isListening: false,
+  setIsListening: (val) => set({ isListening: val }),
 }));

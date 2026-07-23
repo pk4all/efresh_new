@@ -309,6 +309,17 @@ function VoiceAssistantSidebarPanel() {
       }
       setMediaRecorder(null);
 
+      // Prevent empty or corrupted audio error if recorded blob is too small/empty
+      if (!audioBlob || audioBlob.size < 500) {
+        console.warn("Recorded audio blob is empty or too small:", audioBlob?.size);
+        setIsTranscribing(false);
+        if (isAgentActiveRef.current) {
+          toast.error("No speech detected. Try speaking closer to the microphone.");
+          startRecording();
+        }
+        return;
+      }
+
       const formData = new FormData();
       formData.append("audio_file", audioBlob, "audio.webm");
 

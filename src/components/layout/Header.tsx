@@ -295,7 +295,7 @@ export default function Header() {
             <div className="flex flex-col gap-1">
               {[
                 { label: "Home", href: "/" },
-                { label: "Shop", href: "/products" },
+                { label: "Products", href: "/products" },
                 { label: "Wishlist", href: "/wishlist" },
               ].map((item) => (
                 <Link
