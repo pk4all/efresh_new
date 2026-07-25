@@ -1,11 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle } from "lucide-react";
-
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { registerUser, fetchUserProfile } from "@/utils/api";
 
-export default function RegisterPage() {
+function RegisterContent() {
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get("redirect") || "/";
+
   const [showPw, setShowPw] = useState(false);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,29 +22,12 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-      const response = await fetch(`${cleanBase}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          vendor_id: "vendor_test3",
-        }),
+      const data = await registerUser({
+        name: form.name,
+        email: form.email,
+        password: form.password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.detail?.[0]?.msg || errorData.detail || "Registration failed";
-        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
-      }
-
-      const data = await response.json();
       const token = data.data?.access_token || data.access_token;
       const customerId = data.data?.customer_id || data.customer_id;
 
@@ -48,18 +35,15 @@ export default function RegisterPage() {
         localStorage.setItem("token", token);
         localStorage.setItem("customer_id", String(customerId));
 
-        // Fetch profile API for user details
-        const profileResponse = await fetch(`${cleanBase}/profile`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          if (profileData.name) {
-            localStorage.setItem("name", profileData.name);
+        try {
+          const profileData = await fetchUserProfile();
+          const p = profileData.data || profileData;
+          if (p.name) {
+            localStorage.setItem("name", p.name);
+          } else {
+            localStorage.setItem("name", form.name);
           }
-        } else {
+        } catch (_) {
           localStorage.setItem("name", form.name);
         }
       }
@@ -88,7 +72,9 @@ export default function RegisterPage() {
           <p className="text-sm mb-5" style={{ color: "var(--color-muted)" }}>
             Welcome to eFresh, {form.name}! Start shopping fresh.
           </p>
-          <Link href="/" className="btn-primary inline-flex">Go to Home</Link>
+          <Link href={redirectTarget} className="btn-primary inline-flex">
+            {redirectTarget === "/checkout" ? "Continue to Checkout →" : "Go to Home"}
+          </Link>
         </div>
       </div>
     );
@@ -175,7 +161,11 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm mt-5" style={{ color: "var(--color-muted)" }}>
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold hover:underline" style={{ color: "var(--color-primary)" }}>
+            <Link
+              href={redirectTarget !== "/" ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : "/login"}
+              className="font-semibold hover:underline"
+              style={{ color: "var(--color-primary)" }}
+            >
               Sign in
             </Link>
           </p>
@@ -184,3 +174,12 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-gray-500">Loading registration page...</div>}>
+      <RegisterContent />
+    </Suspense>
+  );
+}
+

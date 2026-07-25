@@ -337,4 +337,120 @@ export async function sendAgentChatMessage(sessionId: string, message: string, s
   return response.json();
 }
 
+export async function loginUser(credentials: { email: string; password: string; vendor_id?: string }) {
+  const cleanBase = getBaseUrl();
+  const response = await fetch(`${cleanBase}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: credentials.email,
+      password: credentials.password,
+      vendor_id: credentials.vendor_id || vendorId(),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.detail?.[0]?.msg || errorData.detail || errorData.message || "Login failed";
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+
+  return response.json();
+}
+
+export async function registerUser(userData: { name: string; email: string; password: string; vendor_id?: string }) {
+  const cleanBase = getBaseUrl();
+  const response = await fetch(`${cleanBase}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: userData.name,
+      email: userData.email,
+      password: userData.password,
+      vendor_id: userData.vendor_id || vendorId(),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.detail?.[0]?.msg || errorData.detail || errorData.message || "Registration failed";
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+
+  return response.json();
+}
+
+export async function fetchUserAddresses() {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) {
+    throw new Error("No authorization token found");
+  }
+
+  const response = await fetch(`${cleanBase}/addresses`, {
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    const message = errBody.detail || errBody.message || "Failed to fetch addresses";
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+
+  return response.json();
+}
+
+export async function addUserAddress(addressData: any) {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) {
+    throw new Error("No authorization token found");
+  }
+
+  const response = await fetch(`${cleanBase}/addresses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(addressData),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    const message = errBody.detail || errBody.message || "Failed to save address";
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+
+  return response.json();
+}
+
+export async function checkoutStorefront(checkoutPayload: any) {
+  const cleanBase = getBaseUrl();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (!token) {
+    throw new Error("No authorization token found");
+  }
+
+  const response = await fetch(`${cleanBase}/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(checkoutPayload),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    const message = errBody.detail || errBody.message || "Checkout failed";
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+
+  return response.json();
+}
+
+
 

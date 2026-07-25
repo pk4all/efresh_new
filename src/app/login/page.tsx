@@ -1,13 +1,16 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
-
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { loginUser, fetchUserProfile } from "@/utils/api";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get("redirect") || "/";
+
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
@@ -19,28 +22,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-      const response = await fetch(`${cleanBase}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          vendor_id: "vendor_test3",
-        }),
+      const data = await loginUser({
+        email: form.email,
+        password: form.password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.detail?.[0]?.msg || errorData.detail || "Login failed";
-        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
-      }
-
-      const data = await response.json();
       const token = data.data?.access_token || data.access_token;
       const customerId = data.data?.customer_id || data.customer_id;
 
@@ -48,23 +34,18 @@ export default function LoginPage() {
         localStorage.setItem("token", token);
         localStorage.setItem("customer_id", String(customerId));
 
-        // Fetch profile API for user details
-        const profileResponse = await fetch(`${cleanBase}/profile`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          if (profileData.data.name) {
-            localStorage.setItem("name", profileData.data.name);
+        try {
+          const profileData = await fetchUserProfile();
+          const p = profileData.data || profileData;
+          if (p.name) {
+            localStorage.setItem("name", p.name);
           }
-        }
+        } catch (_) {}
       }
 
       toast.success("Successfully logged in!");
       window.dispatchEvent(new Event("storage"));
-      router.push("/");
+      router.push(redirectTarget);
     } catch (err: any) {
       toast.error(err.message || "An error occurred during login");
     } finally {
@@ -136,7 +117,11 @@ export default function LoginPage() {
 
           <p className="text-center text-sm mt-5" style={{ color: "var(--color-muted)" }}>
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-semibold hover:underline" style={{ color: "var(--color-primary)" }}>
+            <Link
+              href={redirectTarget !== "/" ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : "/register"}
+              className="font-semibold hover:underline"
+              style={{ color: "var(--color-primary)" }}
+            >
               Sign up free
             </Link>
           </p>
@@ -145,3 +130,12 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-gray-500">Loading login page...</div>}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+

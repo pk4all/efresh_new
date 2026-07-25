@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Modal } from "rsuite";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle, X, Carrot, Apple, Leaf } from "lucide-react";
 import { toast } from "sonner";
+import { loginUser, registerUser, fetchUserProfile } from "@/utils/api";
 
 interface AuthModalProps {
   open: boolean;
@@ -26,28 +27,11 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
     e.preventDefault();
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-      const response = await fetch(`${cleanBase}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: loginForm.email,
-          password: loginForm.password,
-          vendor_id: "vendor_test3",
-        }),
+      const data = await loginUser({
+        email: loginForm.email,
+        password: loginForm.password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.detail?.[0]?.msg || errorData.detail || "Login failed";
-        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
-      }
-
-      const data = await response.json();
       const token = data.data?.access_token || data.access_token;
       const customerId = data.data?.customer_id || data.customer_id;
 
@@ -55,18 +39,13 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
         localStorage.setItem("token", token);
         localStorage.setItem("customer_id", String(customerId));
 
-        // Fetch profile API for user details
-        const profileResponse = await fetch(`${cleanBase}/profile`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          if (profileData.data.name) {
-            localStorage.setItem("name", profileData.data.name);
+        try {
+          const profileData = await fetchUserProfile();
+          const p = profileData.data || profileData;
+          if (p.name) {
+            localStorage.setItem("name", p.name);
           }
-        }
+        } catch (_) {}
       }
 
       toast.success("Successfully logged in!");
@@ -83,29 +62,12 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
     e.preventDefault();
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-efresh-698528526600.australia-southeast2.run.app/api/v1/storefront";
-      const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-
-      const response = await fetch(`${cleanBase}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: registerForm.name,
-          email: registerForm.email,
-          password: registerForm.password,
-          vendor_id: "vendor_test3",
-        }),
+      const data = await registerUser({
+        name: registerForm.name,
+        email: registerForm.email,
+        password: registerForm.password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.detail?.[0]?.msg || errorData.detail || "Registration failed";
-        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
-      }
-
-      const data = await response.json();
       const token = data.data?.access_token || data.access_token;
       const customerId = data.data?.customer_id || data.customer_id;
 
@@ -113,18 +75,15 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
         localStorage.setItem("token", token);
         localStorage.setItem("customer_id", String(customerId));
 
-        // Fetch profile API for user details
-        const profileResponse = await fetch(`${cleanBase}/profile`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          if (profileData.name) {
-            localStorage.setItem("name", profileData.name);
+        try {
+          const profileData = await fetchUserProfile();
+          const p = profileData.data || profileData;
+          if (p.name) {
+            localStorage.setItem("name", p.name);
+          } else {
+            localStorage.setItem("name", registerForm.name);
           }
-        } else {
+        } catch (_) {
           localStorage.setItem("name", registerForm.name);
         }
       }
@@ -138,6 +97,7 @@ export default function AuthModal({ open, onClose, initialMode = "login" }: Auth
       setLoading(false);
     }
   };
+
 
   const handleClose = () => {
     onClose();
