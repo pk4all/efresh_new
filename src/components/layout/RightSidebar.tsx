@@ -41,6 +41,145 @@ function stripMarkdown(mdText: string): string {
     .trim();
 }
 
+// Voice-activity detection tuning: these replace the old fixed 3s recording
+// window so the assistant listens naturally and only stops once you pause,
+// like ChatGPT's voice mode rather than cutting you off on a timer.
+const VAD_SPEECH_RMS_THRESHOLD = 0.02;
+const VAD_SILENCE_HOLD_MS = 1100;
+const VAD_MAX_RECORDING_MS = 30000; // hard safety cap if silence is never detected
+const BARGE_IN_RMS_THRESHOLD = 0.035; // a bit higher than VAD to resist TTS speaker bleed
+const BARGE_IN_SUSTAIN_FRAMES = 5; // require a few consecutive frames above threshold
+
+// Short acknowledgements played while waiting on transcription/chat API calls
+// so the assistant never goes quiet on you - like a real person saying
+// "let me check" instead of leaving dead air.
+const THINKING_FILLER_PHRASES = [
+  "Mm-hmm, let me check that for you.",
+  "Ooh okay, one sec, pulling that up now.",
+  "Got it, let me take a quick look.",
+  "Sure thing, give me just a moment.",
+  "Alright, let me see what I can find for you.",
+  "One moment, checking that for you now.",
+  "Okay, let me dig into that real quick.",
+];
+
+function computeRms(analyser: AnalyserNode, buffer: Uint8Array<ArrayBuffer>): number {
+  analyser.getByteTimeDomainData(buffer);
+  let sumSquares = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const v = (buffer[i] - 128) / 128;
+    sumSquares += v * v;
+  }
+  return Math.sqrt(sumSquares / buffer.length);
+}
+
+// Watches the mic in the background (e.g. while TTS is playing) and fires
+// onSpeechDetected as soon as the user starts talking over the assistant.
+// Returns a stop() function that can be called immediately, even before the
+// underlying mic stream has finished being acquired.
+function createBargeInMonitor(onSpeechDetected: () => void): () => void {
+  let cancelled = false;
+  let cleanupFn: (() => void) | null = null;
+
+  (async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      if (cancelled) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+
+      let rafId = 0;
+      let aboveThresholdFrames = 0;
+
+      const tick = () => {
+        if (cancelled) return;
+        const rms = computeRms(analyser, data);
+        if (rms > BARGE_IN_RMS_THRESHOLD) {
+          aboveThresholdFrames++;
+          if (aboveThresholdFrames >= BARGE_IN_SUSTAIN_FRAMES) {
+            cancelled = true;
+            cleanupFn?.();
+            onSpeechDetected();
+            return;
+          }
+        } else {
+          aboveThresholdFrames = 0;
+        }
+        rafId = requestAnimationFrame(tick);
+      };
+
+      cleanupFn = () => {
+        cancelAnimationFrame(rafId);
+        stream.getTracks().forEach((t) => t.stop());
+        try { audioCtx.close(); } catch (e) { }
+      };
+
+      rafId = requestAnimationFrame(tick);
+    } catch (e) {
+      console.error("Barge-in monitor failed to start:", e);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    cleanupFn?.();
+  };
+}
+
+// Taps an <audio> element's actual output so the orb can react to the
+// assistant's own speech in real time, the same way it reacts to your voice.
+function createPlaybackLevelMonitor(audio: HTMLAudioElement, onLevel: (level: number) => void): () => void {
+  let stopped = false;
+  let rafId = 0;
+  let audioCtx: AudioContext | null = null;
+
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    audioCtx = new AudioCtx();
+    const source = audioCtx.createMediaElementSource(audio);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    // Route through the analyser but still out to speakers - createMediaElementSource
+    // hijacks the element's normal output, so it must be reconnected to destination.
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    const data = new Uint8Array(analyser.fftSize);
+
+    const tick = () => {
+      if (stopped) return;
+      onLevel(computeRms(analyser, data));
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  } catch (e) {
+    console.error("Playback level monitor failed to start:", e);
+  }
+
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    cancelAnimationFrame(rafId);
+    onLevel(0);
+    if (audioCtx) {
+      try { audioCtx.close(); } catch (e) { }
+    }
+  };
+}
+
 function VoiceAssistantSidebarPanel() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
@@ -55,6 +194,17 @@ function VoiceAssistantSidebarPanel() {
 
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const vadRafRef = useRef<number | null>(null);
+  const vadAudioCtxRef = useRef<AudioContext | null>(null);
+
+  // Orb visual: fed live by the mic (while listening) and the TTS output
+  // (while speaking) so it reacts to actual sound instead of just switching
+  // between static icons. Updated imperatively via refs/DOM, not React state,
+  // so it can run every animation frame without triggering re-renders.
+  const orbLevelRef = useRef(0);
+  const orbDisplayRef = useRef(0);
+  const orbElRef = useRef<HTMLDivElement | null>(null);
+  const orbRafRef = useRef<number | null>(null);
 
   const isRecording = useAgentStore((s) => s.isRecording);
   const setIsRecording = useAgentStore((s) => s.setIsRecording);
@@ -77,12 +227,112 @@ function VoiceAssistantSidebarPanel() {
   const chatAbortControllerRef = useRef<AbortController | null>(null);
   const shouldTerminateAfterTtsRef = useRef(false);
 
+  const cleanupVad = () => {
+    if (vadRafRef.current !== null) {
+      cancelAnimationFrame(vadRafRef.current);
+      vadRafRef.current = null;
+    }
+    if (vadAudioCtxRef.current) {
+      try { vadAudioCtxRef.current.close(); } catch (e) { }
+      vadAudioCtxRef.current = null;
+    }
+  };
+
+  // Fetches TTS audio, plays it, and lets the user barge in (start talking)
+  // to cut it off early - mirrors how ChatGPT's voice mode behaves. Always
+  // resolves exactly once via onFinished, whether the clip finished naturally,
+  // was interrupted, or failed to play.
+  const playTtsAudio = async (
+    text: string,
+    onFinished: (result: { bargedIn: boolean; played: boolean; error?: string }) => void,
+    allowBargeIn = true
+  ) => {
+    let stopBargeInMonitor: (() => void) | null = null;
+    let stopPlaybackLevelMonitor: (() => void) | null = null;
+    let settled = false;
+
+    const finish = (result: { bargedIn: boolean; played: boolean; error?: string }) => {
+      if (settled) return;
+      settled = true;
+      stopBargeInMonitor?.();
+      stopPlaybackLevelMonitor?.();
+      onFinished(result);
+    };
+
+    try {
+      // Cut off anything still playing (e.g. a filler line that hasn't
+      // finished yet) so responses never overlap each other.
+      const prevAudio = useAgentStore.getState().activeAudio;
+      if (prevAudio) {
+        try { prevAudio.pause(); } catch (e) { }
+        setActiveAudio(null);
+      }
+
+      const ttsRes = await fetch("/demo/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!ttsRes.ok) {
+        let message = "TTS API error";
+        try {
+          const errData = await ttsRes.json();
+          message = errData.error || message;
+        } catch (_) { }
+        throw new Error(message);
+      }
+
+      const audioBlob = await ttsRes.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      setActiveAudio(audio);
+      stopPlaybackLevelMonitor = createPlaybackLevelMonitor(audio, (level) => {
+        orbLevelRef.current = level;
+      });
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setActiveAudio(null);
+        finish({ bargedIn: false, played: true });
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        setActiveAudio(null);
+        finish({ bargedIn: false, played: false, error: "Audio playback error" });
+      };
+
+      if (allowBargeIn) {
+        stopBargeInMonitor = createBargeInMonitor(() => {
+          try { audio.pause(); } catch (e) { }
+          URL.revokeObjectURL(audioUrl);
+          setActiveAudio(null);
+          finish({ bargedIn: true, played: true });
+        });
+      }
+
+      await audio.play();
+    } catch (err: any) {
+      console.error("Failed to generate or play TTS response:", err);
+      finish({ bargedIn: false, played: false, error: err.message });
+    }
+  };
+
+  // Fires off a short "let me check that for you" line while the transcribe
+  // and chat API calls are in flight, so the wait never sounds like dead air.
+  // Fire-and-forget: it doesn't drive the conversation loop itself.
+  const playFillerLine = () => {
+    const phrase = THINKING_FILLER_PHRASES[Math.floor(Math.random() * THINKING_FILLER_PHRASES.length)];
+    playTtsAudio(phrase, () => { }, false);
+  };
+
   const terminateWithThankYou = async (errorMessage?: string) => {
     console.error("Agent terminating due to API/system error:", errorMessage);
 
     setIsAgentActive(false);
     isAgentActiveRef.current = false;
 
+    cleanupVad();
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
@@ -112,35 +362,25 @@ function VoiceAssistantSidebarPanel() {
       setActiveAudio(null);
     }
 
-    let thankYouText = "We are sorry for the inconvenience. Thank you.";
+    const isVoiceQuotaError = errorMessage?.includes("out of credits") || errorMessage?.includes("quota_exceeded");
+
+    let thankYouText = "Ah, sorry about that - something glitched on my end. Give it another shot in a bit!";
     if (errorMessage === "Invalid or expired token." || errorMessage?.includes("Invalid or expired token")) {
-      thankYouText = "We are sorry for the inconvenience, Please login first. Thank you.";
+      thankYouText = "Looks like you'll need to log in first before we keep chatting - hop back in and I'll be right here!";
+    } else if (isVoiceQuotaError) {
+      thankYouText = "I'm out of voice credits for now, so I can't talk until the quota resets. Please try again later.";
     }
     const agentMsgId = `err_thank_${Date.now()}`;
     setMessages(prev => [...prev, { id: agentMsgId, sender: "agent", text: thankYouText }]);
 
-    try {
-      const ttsRes = await fetch("/demo/api/tts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: thankYouText }),
-      });
-
-      if (ttsRes.ok) {
-        const audioBlob = await ttsRes.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        setActiveAudio(audio);
-        audio.onended = () => {
-          setActiveAudio(null);
-        };
-        audio.play();
-      }
-    } catch (ttsErr) {
-      console.error("Failed to generate or play thank you TTS response:", ttsErr);
+    if (isVoiceQuotaError) {
+      // Skip attempting to speak - we already know TTS is unavailable, so
+      // trying again would just fail the same way and clutter the console.
+      toast.error("Voice assistant is out of speech credits for this billing period.");
+      return;
     }
+
+    await playTtsAudio(thankYouText, () => { }, false);
   };
 
   // Sync ref with store state
@@ -153,14 +393,53 @@ function VoiceAssistantSidebarPanel() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cleanup recording timeout on unmount
+  // Cleanup recording timeout and VAD listeners on unmount
   useEffect(() => {
     return () => {
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
       }
+      cleanupVad();
     };
   }, []);
+
+  // Drives the orb: smoothly follows whatever live audio level is currently
+  // feeding orbLevelRef (mic while listening, TTS output while speaking),
+  // plus a gentle idle "breathing" motion so it's never fully static.
+  useEffect(() => {
+    if (!isAgentActive) {
+      if (orbRafRef.current !== null) {
+        cancelAnimationFrame(orbRafRef.current);
+        orbRafRef.current = null;
+      }
+      orbLevelRef.current = 0;
+      orbDisplayRef.current = 0;
+      return;
+    }
+
+    const animate = () => {
+      orbDisplayRef.current += (orbLevelRef.current - orbDisplayRef.current) * 0.15;
+      const level = Math.min(1, orbDisplayRef.current * 4);
+      const breathe = Math.sin(Date.now() / 900) * 0.03;
+      const scale = 1 + level * 0.3 + breathe;
+      const glow = 14 + level * 40;
+
+      if (orbElRef.current) {
+        orbElRef.current.style.transform = `scale(${scale.toFixed(3)})`;
+        orbElRef.current.style.setProperty("--orb-glow", `${glow.toFixed(1)}px`);
+      }
+
+      orbRafRef.current = requestAnimationFrame(animate);
+    };
+    orbRafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (orbRafRef.current !== null) {
+        cancelAnimationFrame(orbRafRef.current);
+        orbRafRef.current = null;
+      }
+    };
+  }, [isAgentActive]);
 
   // Resume recording loop if page transitions and agent is supposed to be active
   useEffect(() => {
@@ -260,7 +539,9 @@ function VoiceAssistantSidebarPanel() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       // Safari prefers audio/mp4, Chrome/Firefox prefer audio/webm
       const mimeType = MediaRecorder.isTypeSupported('audio/webm')
         ? 'audio/webm' : 'audio/mp4';
@@ -272,10 +553,45 @@ function VoiceAssistantSidebarPanel() {
       recorder.start();
       setIsRecording(true);
 
-      // Auto-stop recording after 3 seconds
+      // Voice-activity detection: keep listening naturally and only stop once
+      // the user has spoken and then paused, instead of a blind fixed window.
+      cleanupVad();
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      vadAudioCtxRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const vadData = new Uint8Array(analyser.fftSize);
+
+      let speechStarted = false;
+      let silenceStart: number | null = null;
+
+      const tick = () => {
+        const rms = computeRms(analyser, vadData);
+        orbLevelRef.current = rms;
+        if (rms > VAD_SPEECH_RMS_THRESHOLD) {
+          speechStarted = true;
+          silenceStart = null;
+        } else if (speechStarted) {
+          if (silenceStart === null) {
+            silenceStart = performance.now();
+          } else if (performance.now() - silenceStart > VAD_SILENCE_HOLD_MS) {
+            stopRecording();
+            return;
+          }
+        }
+        vadRafRef.current = requestAnimationFrame(tick);
+      };
+      vadRafRef.current = requestAnimationFrame(tick);
+
+      // Hard safety cap in case silence is never detected (e.g. constant background noise)
       recordingTimeoutRef.current = setTimeout(() => {
         stopRecording();
-      }, 3000);
+      }, VAD_MAX_RECORDING_MS);
     } catch (err) {
       console.error("Failed to start recording:", err);
       toast.error("Failed to access microphone. Please check permissions.");
@@ -288,6 +604,7 @@ function VoiceAssistantSidebarPanel() {
     const activeRecorder = useAgentStore.getState().mediaRecorder;
     if (!activeRecorder) return;
 
+    cleanupVad();
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
@@ -341,6 +658,10 @@ function VoiceAssistantSidebarPanel() {
         // Add user query to messages list
         const userMsgId = Date.now().toString();
         setMessages(prev => [...prev, { id: userMsgId, sender: "user", text }]);
+
+        // Give a quick spoken acknowledgement while the chat API call is in
+        // flight, instead of leaving the wait silent.
+        playFillerLine();
 
         // Get current sessionId or use stored one
         const activeSessionId = sessionId || localStorage.getItem("agent_session_id");
@@ -424,55 +745,27 @@ function VoiceAssistantSidebarPanel() {
         const agentMsgId = (Date.now() + 1).toString();
         setMessages(prev => [...prev, { id: agentMsgId, sender: "agent", text: replyText }]);
 
-        // Convert response text to voice and play it
-        let hasPlayedAudio = false;
-        try {
-          const ttsRes = await fetch("/demo/api/tts", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ text: stripMarkdown(replyText) }),
-          });
-
-          if (ttsRes.ok) {
-            const audioBlob = await ttsRes.blob();
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            setActiveAudio(audio);
-            hasPlayedAudio = true;
-            audio.onended = () => {
-              setActiveAudio(null);
-              if (shouldTerminateAfterTtsRef.current) {
-                console.log(shouldTerminateAfterTtsRef.current, 'shouldTerminateAfterTtsRef.current 2')
-                setIsAgentActive(false);
-                isAgentActiveRef.current = false;
-                shouldTerminateAfterTtsRef.current = false;
-              } else if (isAgentActiveRef.current) {
-                startRecording();
-              }
-            };
-            audio.play();
-          } else {
-            throw new Error("TTS API error");
+        // Convert response text to voice and play it. Barge-in lets the user
+        // start talking over the assistant to cut it off, just like ChatGPT voice.
+        await playTtsAudio(stripMarkdown(replyText), ({ bargedIn, played, error }) => {
+          if (!played) {
+            terminateWithThankYou(error || "TTS error");
+            return;
           }
-        } catch (ttsErr: any) {
-          console.error("Failed to generate or play TTS response:", ttsErr);
-          await terminateWithThankYou(ttsErr.message || "TTS error");
-          return;
-        }
-
-        // If audio playback failed to set up or start, immediately resume recording loop
-        if (!hasPlayedAudio && isAgentActiveRef.current) {
+          if (bargedIn) {
+            // User interrupted - drop any pending termination and listen to them now.
+            shouldTerminateAfterTtsRef.current = false;
+            if (isAgentActiveRef.current) startRecording();
+            return;
+          }
           if (shouldTerminateAfterTtsRef.current) {
-            console.log(shouldTerminateAfterTtsRef.current, 'shouldTerminateAfterTtsRef.current 3')
             setIsAgentActive(false);
             isAgentActiveRef.current = false;
             shouldTerminateAfterTtsRef.current = false;
-          } else {
+          } else if (isAgentActiveRef.current) {
             startRecording();
           }
-        }
+        });
 
         // Also check if text has matching shop commands to trigger navigation or action
         // await executeCommand(text);
@@ -509,6 +802,7 @@ function VoiceAssistantSidebarPanel() {
       isAgentActiveRef.current = false;
 
       // Stop the media recorder immediately and cleanup without processing a final response
+      cleanupVad();
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
         recordingTimeoutRef.current = null;
@@ -571,47 +865,21 @@ function VoiceAssistantSidebarPanel() {
         }
 
         // Add welcome message to visual chat window
-        const welcomeText = "Hello! I am your eFresh Voice Assistant. How can I help you today?";
+        const welcomeText = "Hey, welcome to eFresh! I'm your shopping buddy - here to help you find great picks, add stuff to your cart, or just get you where you need to go. What are we grabbing today?";
         setMessages(prev => [...prev, { id: `welcome_${Date.now()}`, sender: "agent", text: welcomeText }]);
+        setIsTranscribing(false);
 
-        // Convert welcome message to voice and play it, then start recording
-        let welcomePlayed = false;
-        try {
-          const welcomeTtsRes = await fetch("/demo/api/tts", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ text: welcomeText }),
-          });
-
-          if (welcomeTtsRes.ok) {
-            const audioBlob = await welcomeTtsRes.blob();
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            setActiveAudio(audio);
-            welcomePlayed = true;
-            setIsTranscribing(false);
-            audio.onended = () => {
-              setActiveAudio(null);
-              if (isAgentActiveRef.current) {
-                startRecording();
-              }
-            };
-            audio.play();
-          } else {
-            throw new Error("Welcome TTS error");
+        // Convert welcome message to voice and play it, then start listening.
+        // You can talk over it at any point - it'll stop and listen to you.
+        await playTtsAudio(welcomeText, ({ played, error }) => {
+          if (!played) {
+            terminateWithThankYou(error || "Welcome TTS error");
+            return;
           }
-        } catch (ttsErr: any) {
-          console.error("Welcome TTS playback error:", ttsErr);
-          await terminateWithThankYou(ttsErr.message || "Welcome TTS error");
-          return;
-        }
-
-        if (!welcomePlayed && isAgentActiveRef.current) {
-          setIsTranscribing(false);
-          await startRecording();
-        }
+          if (isAgentActiveRef.current) {
+            startRecording();
+          }
+        });
       } catch (err) {
         console.error("Failed to start recording:", err);
         toast.error("Failed to access microphone. Please check permissions.");
@@ -621,6 +889,12 @@ function VoiceAssistantSidebarPanel() {
       }
     }
   };
+
+  const orbState: "listening" | "thinking" | "speaking" = isTranscribing
+    ? "thinking"
+    : activeAudio
+      ? "speaking"
+      : "listening";
 
   return (
     <div className="flex-1 flex flex-col p-6 overflow-y-auto select-none bg-white custom-scrollbar">
@@ -662,8 +936,25 @@ function VoiceAssistantSidebarPanel() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Connection & Action */}
-      <div className="flex items-center justify-between border-t border-b border-gray-100 py-3.5 mb-5 bg-white">
+      {/* Live voice orb - sits below the chat, outside the scrollable area,
+          so it's always visible while active. Reacts to the mic while
+          listening and to its own voice while speaking, so it feels like an
+          actual conversation partner rather than a static icon. */}
+      {isAgentActive && (
+        <div className="flex flex-col items-center gap-1.5 pb-4">
+          <div
+            ref={orbElRef}
+            className={`voice-orb ${orbState === "thinking" ? "voice-orb--thinking" : ""}`}
+          />
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+            {orbState === "thinking" ? "Thinking..." : orbState === "speaking" ? "Talking..." : "Listening..."}
+          </span>
+        </div>
+      )}
+
+      {/* Connection & Action - the orb above already shows live status, so
+          this row just holds the start/stop control. */}
+      <div className="flex items-center justify-center border-t border-b border-gray-100 py-3.5 mb-5 bg-white">
         <button
           onClick={handleToggleRecording}
           className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold cursor-pointer transition-all active:scale-95 ${isAgentActive
@@ -673,24 +964,6 @@ function VoiceAssistantSidebarPanel() {
         >
           {isAgentActive ? "Stop Agent" : "Start Agent"}
         </button>
-
-        {/* Agent Animation / Status Area */}
-        <div className="flex items-center gap-3">
-          {isRecording ? (
-            <div className="flex items-center gap-1 h-4">
-              <span className="w-0.5 h-2 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-              <span className="w-0.5 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
-              <span className="w-0.5 h-2 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
-              <span className="w-0.5 h-3 bg-[#0da487] rounded-full animate-bounce" style={{ animationDelay: "450ms" }}></span>
-            </div>
-          ) : isTranscribing ? (
-            <div className="w-3.5 h-3.5 rounded-full border-2 border-[#0da487] border-t-transparent animate-spin"></div>
-          ) : null}
-
-          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-            {isRecording ? "Listening..." : isTranscribing ? "Thinking..." : "Agent Idle"}
-          </span>
-        </div>
       </div>
 
       {/* Command input */}
@@ -735,6 +1008,56 @@ function VoiceAssistantSidebarPanel() {
           </li>
         </ul>
       </div>
+
+      <style jsx>{`
+        .voice-orb {
+          --orb-glow: 16px;
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          position: relative;
+          overflow: hidden;
+          background: radial-gradient(
+            circle at 32% 26%,
+            #ffffff 0%,
+            #eef1ff 22%,
+            #b7c1ff 46%,
+            #7681f2 70%,
+            #4c56e6 100%
+          );
+          box-shadow: 0 0 var(--orb-glow) calc(var(--orb-glow) * 0.35) rgba(99, 102, 241, 0.45);
+          will-change: transform;
+        }
+        .voice-orb::before {
+          content: "";
+          position: absolute;
+          inset: -10%;
+          border-radius: 50%;
+          background: radial-gradient(circle at 70% 75%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+            radial-gradient(circle at 22% 62%, rgba(129, 140, 255, 0.55) 0%, rgba(129, 140, 255, 0) 50%);
+          mix-blend-mode: screen;
+          animation: voiceOrbSwirl 7s ease-in-out infinite alternate;
+        }
+        .voice-orb--thinking {
+          animation: voiceOrbHue 2.4s linear infinite;
+        }
+        @keyframes voiceOrbSwirl {
+          0% {
+            transform: rotate(0deg) scale(1);
+          }
+          100% {
+            transform: rotate(20deg) scale(1.06);
+          }
+        }
+        @keyframes voiceOrbHue {
+          from {
+            filter: hue-rotate(0deg);
+          }
+          to {
+            filter: hue-rotate(25deg);
+          }
+        }
+      `}</style>
     </div>
   );
 }

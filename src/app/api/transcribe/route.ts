@@ -39,8 +39,19 @@ export async function POST(req: Request) {
         console.warn("ElevenLabs reported empty/corrupted file. Gracefully returning empty text.");
         return NextResponse.json({ text: "" }, { status: 200 });
       }
+
+      let message = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        message = parsed?.detail?.message || parsed?.detail || message;
+      } catch (_) { }
+
+      if (response.status === 401) {
+        message = "Voice service is out of credits for this billing period. " + message;
+      }
+
       return NextResponse.json(
-        { error: `ElevenLabs API error: ${errText}` },
+        { error: message },
         { status: response.status }
       );
     }

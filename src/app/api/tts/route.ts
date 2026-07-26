@@ -27,8 +27,13 @@ export async function POST(req: Request) {
           text: text,
           model_id: "eleven_turbo_v2",
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
+            stability: 0.4,
+            similarity_boost: 0.8,
+            style: 0.35,
+            use_speaker_boost: true,
+            // Max supported pace for this voice/model - keeps delivery brisk
+            // and conversational instead of a slow, over-enunciated read.
+            speed: 1.2,
           },
         }),
       }
@@ -36,8 +41,18 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errText = await response.text();
+      let message = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        message = parsed?.detail?.message || parsed?.detail || message;
+      } catch (_) { }
+
+      if (response.status === 401) {
+        message = "Voice service is out of credits for this billing period. " + message;
+      }
+
       return NextResponse.json(
-        { error: `ElevenLabs API error: ${errText}` },
+        { error: message },
         { status: response.status }
       );
     }
