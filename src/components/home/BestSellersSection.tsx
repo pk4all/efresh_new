@@ -29,7 +29,7 @@ export default function BestSellersSection() {
           category_id: catId,
           limit: 12,
           offset: activeTab === "All" ? 24 : 0,
-          vendor_id: "vendor_test3",
+          vendor_id: "vendor_test6",
         });
         const items = res?.data || [];
         setProducts(items.map(mapApiProductToProduct));

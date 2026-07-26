@@ -15,7 +15,7 @@ export default function NewArrivalsSection() {
       try {
         setLoading(true);
         // Fetch 12 products (offsetting by 12 to show different ones than featured)
-        const res = await fetchProducts({ limit: 12, offset: 12, vendor_id: "vendor_test3" });
+        const res = await fetchProducts({ limit: 12, offset: 12, vendor_id: "vendor_test6" });
         const items = res?.data || [];
         setProducts(items.map(mapApiProductToProduct));
       } catch (err) {
@@ -51,7 +51,7 @@ export default function NewArrivalsSection() {
           View All <ArrowRight size={14} />
         </Link>
       </div>
-      
+
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (

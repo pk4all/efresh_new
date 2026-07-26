@@ -102,8 +102,8 @@ export default function MegaNav() {
       try {
         setLoading(true);
         const [catsRes, subcatsRes] = await Promise.all([
-          fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test3" }),
-          fetchSubCategories({ limit: 50, offset: 0, vendor_id: "vendor_test3" }),
+          fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test6" }),
+          fetchSubCategories({ limit: 50, offset: 0, vendor_id: "vendor_test6" }),
         ]);
 
         const cats = catsRes?.data || [];

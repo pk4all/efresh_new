@@ -13,7 +13,7 @@ export default function TodayDealsSection() {
       try {
         setLoading(true);
         // Category 2 is Vegetables
-        const res = await fetchProducts({ category_id: "2", limit: 12, vendor_id: "vendor_test3" });
+        const res = await fetchProducts({ category_id: "2", limit: 12, vendor_id: "vendor_test6" });
         const items = res?.data || [];
         setProducts(items.map(mapApiProductToProduct));
       } catch (err) {

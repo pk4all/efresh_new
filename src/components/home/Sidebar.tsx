@@ -73,7 +73,7 @@ export default function Sidebar() {
     async function loadCategories() {
       try {
         setLoading(true);
-        const res = await fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test3" });
+        const res = await fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test6" });
         setCategories(res?.data || []);
       } catch (err) {
         console.error("Failed to load categories in Sidebar:", err);
