@@ -18,6 +18,21 @@ export function getStoredVendorId(): string {
   return "vendor_test6";
 }
 
+/**
+ * Helper to ensure local assets respect the Next.js basePath (/demo).
+ */
+export function getPublicAssetUrl(path: string): string {
+  if (!path) return "/demo/images/placeholder.jpg";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  if (cleanPath.startsWith("/demo/")) {
+    return cleanPath;
+  }
+  return `/demo${cleanPath}`;
+}
+
 export async function getVendorByPincode(pincode: string) {
   const cleanBase = getBaseUrl();
   const url = `${cleanBase}/vendors/by-pincode?pincode=${encodeURIComponent(pincode)}`;
@@ -116,6 +131,7 @@ export async function fetchProducts(params: GetProductsParams = {}) {
   const url = `${cleanBase}/products?${queryParams.toString()}`;
 
   const response = await fetch(url);
+  //console.log(await response.json(), 'all products')
   if (!response.ok) {
     throw new Error(`Failed to fetch products: ${response.statusText}`);
   }
@@ -195,6 +211,7 @@ export function mapApiProductToProduct(apiItem: any): any {
     slug: (apiItem.product_name || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + apiItem.id,
     category: apiItem.category_name || catMap[String(apiItem.cat_id)] || "Groceries",
     price: cost,
+    product_type: apiItem.product_type || apiItem.unit || apiItem.type || "",
     // originalPrice: cost > 0 ? cost * 1.2 : 0,
     originalPrice: cost,
     image: image,

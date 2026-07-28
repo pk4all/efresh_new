@@ -9,7 +9,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 import QuickViewModal from "./QuickViewModal";
 import StarRating from "./StarRating";
-
+import { getPublicAssetUrl } from "@/utils/api";
 interface Props {
   product: Product;
 }
@@ -70,6 +70,10 @@ export default function ProductCard({ product }: Props) {
               fill
               unoptimized
               className="object-cover transition-transform duration-500 group-hover:scale-108"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+              }}
             />
           </div>
 
@@ -106,13 +110,13 @@ export default function ProductCard({ product }: Props) {
         </Link>
 
         {/* Info */}
-        <div className="p-3 flex flex-col flex-1">
-          <p className="text-xs mb-1" style={{ color: "var(--color-muted)" }}>
+        <div className="p-2.5 sm:p-3 flex flex-col flex-1">
+          {/* <p className="text-xs mb-1" style={{ color: "var(--color-muted)" }}>
             {product.category}
-          </p>
+          </p> */}
           <Link
             href={`/product/${product.slug}`}
-            className="text-sm font-semibold line-clamp-2 mb-1.5 hover:text-primary transition-colors"
+            className="text-xs sm:text-sm font-semibold line-clamp-2 mb-1 hover:text-primary transition-colors"
             style={{ color: "var(--color-dark)" }}
           >
             {product.name}
@@ -126,12 +130,17 @@ export default function ProductCard({ product }: Props) {
           /> */}
 
           {/* Price */}
-          <div className="flex items-baseline gap-2 mt-auto mb-2">
-            <span className="font-bold text-base" style={{ color: "var(--color-primary)" }}>
+          <div className="flex items-baseline gap-1.5 mt-auto mb-2 flex-wrap">
+            <span className="font-bold text-sm sm:text-base" style={{ color: "var(--color-primary)" }}>
               ${product.price.toFixed(2)}
+              {product.product_type && (
+                <span className="text-[10px] sm:text-xs font-semibold text-gray-500 ml-0.5">
+                  / {product.product_type}
+                </span>
+              )}
             </span>
             {product.originalPrice > product.price && (
-              <span className="text-xs line-through" style={{ color: "var(--color-muted)" }}>
+              <span className="text-[11px] sm:text-xs line-through" style={{ color: "var(--color-muted)" }}>
                 ${product.originalPrice.toFixed(2)}
               </span>
             )}
@@ -139,21 +148,21 @@ export default function ProductCard({ product }: Props) {
 
           {/* Stock indicator */}
           {product.stock < 10 && (
-            <p className="text-xs mb-2 font-medium" style={{ color: "var(--color-danger)" }}>
+            <p className="text-[11px] sm:text-xs mb-1.5 font-medium" style={{ color: "var(--color-danger)" }}>
               Only {product.stock} left!
             </p>
           )}
 
           {/* Add to cart / Stepper */}
           {quantity > 0 ? (
-            <div className="flex items-center justify-between bg-gray-50 border border-gray-200/60 rounded-md overflow-hidden w-full h-9">
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200/60 rounded-md overflow-hidden w-full h-8 sm:h-9">
               <button
                 onClick={(e) => {
                   e.preventDefault();
                   updateQuantity(product.id, quantity - 1);
                   toast.success(`Updated ${product.name} quantity to ${quantity - 1}`);
                 }}
-                className="w-10 h-full flex items-center justify-center bg-gray-100 hover:bg-[#0da487]/10 hover:text-[#0da487] text-gray-600 transition-all font-bold text-sm cursor-pointer"
+                className="w-8 sm:w-10 h-full flex items-center justify-center bg-gray-100 hover:bg-[#4967a9]/10 hover:text-[#4967a9] text-gray-600 transition-all font-bold text-xs sm:text-sm cursor-pointer"
               >
                 –
               </button>
@@ -164,7 +173,7 @@ export default function ProductCard({ product }: Props) {
                   updateQuantity(product.id, quantity + 1);
                   toast.success(`Updated ${product.name} quantity to ${quantity + 1}`);
                 }}
-                className="w-10 h-full flex items-center justify-center bg-gray-100 hover:bg-[#0da487]/10 hover:text-[#0da487] text-gray-600 transition-all font-bold text-sm cursor-pointer"
+                className="w-8 sm:w-10 h-full flex items-center justify-center bg-gray-100 hover:bg-[#4967a9]/10 hover:text-[#4967a9] text-gray-600 transition-all font-bold text-xs sm:text-sm cursor-pointer"
               >
                 +
               </button>
@@ -172,7 +181,7 @@ export default function ProductCard({ product }: Props) {
           ) : (
             <button
               onClick={handleAddToCart}
-              className="btn-primary w-full text-xs py-2 gap-1.5 cursor-pointer"
+              className="btn-primary w-full text-[11px] sm:text-xs py-1.5 sm:py-2 gap-1 cursor-pointer"
               style={{
                 backgroundColor: "var(--color-primary)",
                 transition: "background-color 0.3s ease",

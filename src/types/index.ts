@@ -17,6 +17,7 @@ export interface Product {
   category_name?: string;
   subcategory_name?: string;
   price: number;
+  product_type?: string;
   package_cost?: string;
   seasonal?: string;
   originalPrice: number;

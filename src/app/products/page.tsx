@@ -33,36 +33,6 @@ function ShopContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [mounted, setMounted] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasMore || productsLoading || loadingMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setPage((p) => p + 1);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const currentSentinel = sentinelRef.current;
-    if (currentSentinel) {
-      observer.observe(currentSentinel);
-    }
-
-    return () => {
-      if (currentSentinel) {
-        observer.unobserve(currentSentinel);
-      }
-    };
-  }, [hasMore, productsLoading, loadingMore]);
 
   const setStoreProducts = useCartStore((s) => s.setProducts);
   const products = useCartStore((state) => state.products);
@@ -114,7 +84,7 @@ function ShopContent() {
         const catId = catObj ? String(catObj.id) : undefined;
 
         const res = await fetchProducts({
-          limit: 15,
+          limit: 30,
           page: page,
           category_id: catId,
           search: searchQuery || undefined,
@@ -122,6 +92,7 @@ function ShopContent() {
         });
 
         const items = res?.data || [];
+        console.log(items, 'items')
         const mapped = items.map(mapApiProductToProduct);
 
         setDbProducts((prev) => (page === 1 ? mapped : [...prev, ...mapped]));
@@ -268,102 +239,80 @@ function ShopContent() {
         {searchQuery ? `Search Results for "${searchQuery}"` : "Shop All Products"}
       </h1>
 
-      <div className="flex gap-6">
-        {/* Desktop Sidebar */}
-        <div className="hidden lg:block w-56 flex-shrink-0">
-          <div className="card p-5 sticky top-24">
-            <Sidebar />
-          </div>
+      {/* Main Content Area (Full Width) */}
+      <div className="w-full">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+          <p className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
+            {totalProducts} products found
+          </p>
         </div>
 
-        {/* Main */}
-        <div className="flex-1">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-            <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-              {totalProducts} products found
-            </p>
-            {/* Mobile filter toggle */}
+        {/* Product grid */}
+        {productsLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="animate-pulse bg-gray-100 rounded-2xl h-[280px]" />
+            ))}
+          </div>
+        ) : paginated.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-4xl mb-3">🛒</p>
+            <p className="font-semibold text-gray-500">No products match your filters.</p>
             <button
-              className="lg:hidden flex items-center gap-1.5 text-sm font-medium border px-3 py-2 rounded-sm"
-              style={{ borderColor: "var(--color-border)" }}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => { setSelectedCategories([]); }}
+              className="mt-3 btn-outline text-sm"
             >
-              <SlidersHorizontal size={14} />
-              Filters
+              Clear filters
             </button>
           </div>
-
-          {/* Mobile sidebar */}
-          {sidebarOpen && (
-            <div className="lg:hidden card p-5 mb-5">
-              <Sidebar />
-            </div>
-          )}
-
-          {/* Product grid */}
-          {productsLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="animate-pulse bg-gray-100 rounded-2xl h-[280px]" />
-              ))}
-            </div>
-          ) : paginated.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-4xl mb-3">🛒</p>
-              <p className="font-semibold text-gray-500">No products match your filters.</p>
-              <button
-                onClick={() => { setSelectedCategories([]); }}
-                className="mt-3 btn-outline text-sm"
-              >
-                Clear filters
-              </button>
-            </div>
-          ) : view === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {paginated.map((p, idx) => <ProductCard key={`${p.id}-${idx}`} product={p} />)}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paginated.map((product, idx) => (
-                <div key={`${product.id}-${idx}`} className="card flex gap-4 p-4">
-                  <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 relative">
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-400">{product.category}</p>
-                    <p className="font-semibold text-sm mt-0.5" style={{ color: "var(--color-dark)" }}>{product.name}</p>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{product.description}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="font-bold" style={{ color: "var(--color-primary)" }}>${product.price.toFixed(2)}</span>
-                      {product.originalPrice > product.price && (
-                        <span className="text-xs line-through text-gray-400">${product.originalPrice.toFixed(2)}</span>
-                      )}
-                    </div>
+        ) : view === "grid" ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {paginated.map((p, idx) => <ProductCard key={`${p.id}-${idx}`} product={p} />)}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {paginated.map((product, idx) => (
+              <div key={`${product.id}-${idx}`} className="card flex gap-4 p-4">
+                <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 relative">
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-gray-400">{product.category}</p>
+                  <p className="font-semibold text-sm mt-0.5" style={{ color: "var(--color-dark)" }}>{product.name}</p>
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{product.description}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="font-bold" style={{ color: "var(--color-primary)" }}>${product.price.toFixed(2)}</span>
+                    {product.originalPrice > product.price && (
+                      <span className="text-xs line-through text-gray-400">${product.originalPrice.toFixed(2)}</span>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* Load More Sentinel / Button fallback */}
-          {mounted && (
-            <div ref={sentinelRef} className="flex justify-center mt-8 min-h-[50px] items-center">
-              {hasMore && (loadingMore || productsLoading) && (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "var(--color-primary)" }} />
+        {/* Load More Button */}
+        {hasMore && !productsLoading && (
+          <div className="flex justify-center mt-8 min-h-[50px] items-center">
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={loadingMore}
+              className="btn-primary px-8 py-3 rounded-full text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 disabled:opacity-75"
+              style={{ backgroundColor: "var(--color-primary)", color: "white" }}
+            >
+              {loadingMore ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  Loading...
+                </>
+              ) : (
+                "Load More"
               )}
-              {hasMore && !loadingMore && !productsLoading && (
-                <button
-                  onClick={() => setPage((p) => p + 1)}
-                  className="btn-primary px-8 py-3 rounded-full text-sm font-semibold transition-all cursor-pointer"
-                  style={{ backgroundColor: "var(--color-primary)", color: "white" }}
-                >
-                  Load More
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

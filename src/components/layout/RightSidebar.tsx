@@ -902,7 +902,7 @@ function VoiceAssistantSidebarPanel() {
       <div className="flex-1 min-h-[220px] overflow-y-auto mb-5 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col gap-3 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 py-8">
-            <Sparkles className="w-8 h-8 text-[#0da487]/40 mb-2 animate-pulse" />
+            <Sparkles className="w-8 h-8 text-[#4967a9]/40 mb-2 animate-pulse" />
             <p className="text-xs font-bold text-gray-500">Conversational Voice Agent</p>
             <p className="text-[10px] text-gray-400 max-w-[180px] mt-1">Start the agent and talk to ask questions or navigate the site.</p>
           </div>
@@ -918,7 +918,7 @@ function VoiceAssistantSidebarPanel() {
               </span>
               <div
                 className={`px-3.5 py-2.5 rounded-2xl text-xs shadow-sm leading-relaxed ${msg.sender === "user"
-                  ? "bg-[#0da487] text-white rounded-tr-none"
+                  ? "bg-[#4967a9] text-white rounded-tr-none"
                   : "bg-white text-gray-700 border border-gray-100 rounded-tl-none markdown-body"
                   }`}
               >
@@ -959,7 +959,7 @@ function VoiceAssistantSidebarPanel() {
           onClick={handleToggleRecording}
           className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold cursor-pointer transition-all active:scale-95 ${isAgentActive
             ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 animate-pulse"
-            : "bg-[#0da487]/10 text-[#0da487] hover:bg-[#0da487]/20"
+            : "bg-[#4967a9]/10 text-[#4967a9] hover:bg-[#4967a9]/20"
             }`}
         >
           {isAgentActive ? "Stop Agent" : "Start Agent"}
@@ -967,7 +967,7 @@ function VoiceAssistantSidebarPanel() {
       </div>
 
       {/* Command input */}
-      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[#0da487] transition-all" style={{ display: 'none' }}>
+      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[#4967a9] transition-all" style={{ display: 'none' }}>
         <input
           type="text"
           value={textCommand}
@@ -977,7 +977,7 @@ function VoiceAssistantSidebarPanel() {
         />
         <button
           type="submit"
-          className="p-2 bg-[#0da487] text-white rounded-full hover:bg-[#0bc29e] transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[#0da487]/20"
+          className="p-2 bg-[#4967a9] text-white rounded-full hover:bg-[#3b548b] transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[#4967a9]/20"
           title="Send Command"
         >
           <Send size={13} />

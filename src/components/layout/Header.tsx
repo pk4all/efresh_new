@@ -110,10 +110,10 @@ export default function Header() {
               style={{ borderColor: "#eceff1" }}
               onClick={() => setShowPincodeModal(true)}
             >
-              <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center mr-2">
-                <MapPin size={14} className="text-[#0da487]" />
+              <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center mr-2">
+                <MapPin size={14} className="text-[#4967a9]" />
               </div>
-              <span className="text-sm font-semibold mr-1.5" style={{ color: "#0da487" }}>
+              <span className="text-sm font-semibold mr-1.5" style={{ color: "#4967a9" }}>
                 {pincode ? `Pincode: ${pincode}` : "Set Pincode"}
               </span>
               <ChevronDown size={12} className="text-gray-400 stroke-[2.5]" />
@@ -136,7 +136,7 @@ export default function Header() {
               <Link
                 href={`/products?q=${searchQuery}`}
                 className="px-5 flex items-center justify-center transition-colors text-white hover:opacity-90 cursor-pointer"
-                style={{ backgroundColor: "#ffa53b" }}
+                style={{ backgroundColor: "#4967a9" }}
               >
                 <Search size={18} className="stroke-[2.5]" />
               </Link>
@@ -148,10 +148,10 @@ export default function Header() {
             {/* Phone (24/7 Delivery) */}
             <a
               href="tel:+918881042340"
-              className="flex items-center gap-2 text-gray-700 hover:text-[#0da487] transition-colors p-1 hidden lg:flex"
+              className="flex items-center gap-2 text-gray-700 hover:text-[#4967a9] transition-colors p-1 hidden lg:flex"
             >
               <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
-                <Phone size={18} className="stroke-[2] text-[#0da487]" />
+                <Phone size={18} className="stroke-[2] text-[#4967a9]" />
               </div>
               <div className="flex flex-col items-start leading-none text-left">
                 <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">24/7 Delivery</span>
@@ -160,33 +160,6 @@ export default function Header() {
             </a>
 
             <span className="h-5 w-px bg-gray-200 hidden lg:block" />
-
-            {/* Wishlist */}
-            <Link href="/wishlist" className="relative text-gray-700 hover:text-[#0da487] transition-colors p-1 flex items-center justify-center">
-              <Heart size={22} className="stroke-[1.5]" />
-              {mounted && wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full text-white text-[10px] flex items-center justify-center font-bold bg-red-500">
-                  {wishlistCount}
-                </span>
-              )}
-            </Link>
-
-            <span className="h-5 w-px bg-gray-200" />
-
-            {/* Cart */}
-            {/* <button
-              onClick={openCart}
-              className="relative text-gray-700 hover:text-[#0da487] transition-colors p-1 flex items-center justify-center cursor-pointer"
-            >
-              <ShoppingCart size={22} className="stroke-[1.5]" />
-              {mounted && cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full text-white text-[10px] flex items-center justify-center font-bold bg-red-500">
-                  {cartCount}
-                </span>
-              )}
-            </button> */}
-
-            {/* <span className="h-5 w-px bg-gray-200 hidden sm:block" /> */}
 
             {/* User Account */}
             <div className="relative hidden sm:block" ref={userRef}>

@@ -55,7 +55,6 @@ export async function POST(req: Request) {
         { status: response.status }
       );
     }
-
     const data = await response.json();
     console.log(data, 'res')
     return NextResponse.json({ text: data.text || "" });

@@ -1,34 +1,24 @@
 "use client";
+
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import HeroBannerSlider from "@/components/home/HeroBannerSlider";
-import PromoBanners from "@/components/home/PromoBanners";
 import TodayDealsSection from "@/components/home/TodayDealsSection";
 import OfferBannersSection from "@/components/home/OfferBannersSection";
 import FeaturedProductsSection from "@/components/home/FeaturedProductsSection";
 import BestSellersSection from "@/components/home/BestSellersSection";
 import NewArrivalsSection from "@/components/home/NewArrivalsSection";
 import NewsletterSection from "@/components/home/NewsletterSection";
-import Sidebar from "@/components/home/Sidebar";
 
 export default function HomePage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* Hero */}
+    <div className="w-full">
+      {/* Edge-to-Edge Full-Width Hero Slider */}
       <HeroBannerSlider />
 
-      {/* Promo Banners */}
-      <PromoBanners />
-
-      {/* Two Column Layout matching Fastkart */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 my-8 items-start">
-        {/* Left Column (Sticky Sidebar on Desktop) */}
-        <div className="lg:col-span-1 hidden lg:block lg:sticky lg:top-24">
-          <Sidebar />
-        </div>
-
-        {/* Right Column (Main Product Feed) */}
-        <div className="lg:col-span-3 flex flex-col gap-10">
+      {/* Main Content Body inside Centered Container */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex flex-col gap-10 my-4">
           {/* Today's Deals (Top Save Today) */}
           <TodayDealsSection />
 
@@ -71,10 +61,10 @@ export default function HomePage() {
           {/* New Arrivals */}
           <NewArrivalsSection />
         </div>
-      </div>
 
-      {/* Newsletter */}
-      <NewsletterSection />
+        {/* Newsletter */}
+        <NewsletterSection />
+      </div>
     </div>
   );
 }

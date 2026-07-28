@@ -85,6 +85,11 @@ export default function QuickViewModal({ product, onClose }: Props) {
             <div className="flex items-baseline gap-3 mb-3">
               <span className="text-2xl font-bold" style={{ color: "var(--color-primary)" }}>
                 ${product.price.toFixed(2)}
+                {product.product_type && (
+                  <span className="text-sm font-semibold text-gray-500 ml-1.5">
+                    / {product.product_type}
+                  </span>
+                )}
               </span>
               {product.originalPrice > product.price && (
                 <span className="text-base line-through" style={{ color: "var(--color-muted)" }}>

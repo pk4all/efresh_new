@@ -4,11 +4,11 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useCartStore } from "@/store/cartStore";
 import RightSidebar from "@/components/layout/RightSidebar";
-import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Header from "@/components/layout/Header";
 import MegaNav from "@/components/layout/MegaNav";
 import Footer from "@/components/layout/Footer";
 import PincodeModal from "@/components/layout/PincodeModal";
+import CookieConsentDrawer from "@/components/layout/CookieConsentDrawer";
 import { toast } from "sonner";
 
 interface MainLayoutWrapperProps {
@@ -62,7 +62,6 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
   return (
       <div className="flex min-h-screen bg-white">
         <div className={`flex-1 flex flex-col min-h-screen ${isHomepage ? "" : "lg:pr-[400px]"}`}>
-          <AnnouncementBar />
           <Header />
           <MegaNav />
           <main className="flex-1">{children}</main>
@@ -70,6 +69,7 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
         </div>
         <RightSidebar />
         <PincodeModal />
+        <CookieConsentDrawer />
       </div>
   );
 }
