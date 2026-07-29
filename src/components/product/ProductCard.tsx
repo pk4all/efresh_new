@@ -90,7 +90,6 @@ export default function ProductCard({ product }: Props) {
           <div className="absolute top-2.5 right-2.5 flex flex-col items-center gap-1.5 z-30">
             {/* Info (Description Tooltip) Button - Only shown if description exists */}
             {
-              //product.description && product.description.trim().length > 0 && (
               <div>
                 <button
                   data-tooltip-id={`prod-desc-${product.id}`}
@@ -98,13 +97,12 @@ export default function ProductCard({ product }: Props) {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer block"
+                  className="w-8 h-8 rounded-full shadow-xs flex items-center justify-center hover:scale-110 transition-all cursor-pointer block"
                   aria-label="Product Description"
                 >
-                  <Info size={19} className="stroke-[2.2] text-gray-400 hover:text-gray-600" />
+                  <Info size={16} className="stroke-[2.2] text-gray-500 hover:text-[#4967a9]" />
                 </button>
               </div>
-              // )
             }
 
             {/* Other Actions (Wishlist & Quick View) - Show Only on Card Hover */}
@@ -112,7 +110,7 @@ export default function ProductCard({ product }: Props) {
               {/* Wishlist Button */}
               <button
                 onClick={handleWishlist}
-                className="w-8 h-8 bg-white shadow-xs flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white shadow-xs flex items-center justify-center hover:scale-110 transition-all cursor-pointer"
                 title="Wishlist"
               >
                 <Heart
@@ -126,7 +124,7 @@ export default function ProductCard({ product }: Props) {
               {/* Quick View Button */}
               <button
                 onClick={(e) => { e.preventDefault(); setQuickView(true); }}
-                className="w-8 h-8 bg-white shadow-xs flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white shadow-xs flex items-center justify-center hover:scale-110 transition-all cursor-pointer"
                 title="Quick View"
               >
                 <Eye size={15} className="text-gray-600" />

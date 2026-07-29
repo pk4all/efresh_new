@@ -944,7 +944,8 @@ function VoiceAssistantSidebarPanel() {
         <div className="flex flex-col items-center gap-1.5 pb-4">
           <div
             ref={orbElRef}
-            className={`voice-orb ${orbState === "thinking" ? "voice-orb--thinking" : ""}`}
+            className={`voice-orb ${orbState === "thinking" ? "voice-orb--thinking" : ""} rounded-full`}
+            style={{ borderRadius: "50%", overflow: "hidden", clipPath: "circle(50% at 50% 50%)" }}
           />
           <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
             {orbState === "thinking" ? "Thinking..." : orbState === "speaking" ? "Talking..." : "Listening..."}
@@ -1014,9 +1015,12 @@ function VoiceAssistantSidebarPanel() {
           --orb-glow: 16px;
           width: 64px;
           height: 64px;
-          border-radius: 50%;
+          border-radius: 50% !important;
+          -webkit-border-radius: 50% !important;
+          clip-path: circle(50% at 50% 50%) !important;
+          -webkit-clip-path: circle(50% at 50% 50%) !important;
           position: relative;
-          overflow: hidden;
+          overflow: hidden !important;
           background: radial-gradient(
             circle at 32% 26%,
             #ffffff 0%,
@@ -1032,7 +1036,9 @@ function VoiceAssistantSidebarPanel() {
           content: "";
           position: absolute;
           inset: -10%;
-          border-radius: 50%;
+          border-radius: 50% !important;
+          -webkit-border-radius: 50% !important;
+          clip-path: circle(50% at 50% 50%) !important;
           background: radial-gradient(circle at 70% 75%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
             radial-gradient(circle at 22% 62%, rgba(129, 140, 255, 0.55) 0%, rgba(129, 140, 255, 0) 50%);
           mix-blend-mode: screen;
@@ -1074,66 +1080,82 @@ export default function RightSidebar() {
   const total = useCartStore((s) => s.getTotalPrice());
 
   useEffect(() => {
-    if (isHomepage && isAgentActive) {
+    if (isAgentActive) {
       setShowFloatingPanel(true);
     }
-  }, [isHomepage, isAgentActive]);
+  }, [isAgentActive]);
 
-  if (isHomepage) {
-    return (
-      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 select-none font-sans">
-        {/* Floating Control Panel */}
-        {showFloatingPanel && (
-          <div
-            className="w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-300 flex flex-col max-h-[500px]"
-            style={{ boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.15)" }}
-          >
-            {/* Header */}
-            <div className="bg-[#4967a9] text-white px-4 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="animate-pulse" />
-                <span className="font-semibold text-sm">eFresh Voice Assistant</span>
-              </div>
-              <button
-                onClick={() => setShowFloatingPanel(false)}
-                className="text-white/80 hover:text-white transition-colors cursor-pointer"
-              >
-                <X size={16} />
-              </button>
+  const renderFloatingVoiceAgent = () => (
+    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 select-none font-sans">
+      {/* Floating Control Panel */}
+      {showFloatingPanel && (
+        <div
+          className="w-[calc(100vw-3rem)] max-w-sm bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-300 flex flex-col max-h-[500px]"
+          style={{ boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.2)" }}
+        >
+          {/* Header */}
+          <div className="bg-[#4967a9] text-white px-4 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="animate-pulse" />
+              <span className="font-semibold text-sm">eFresh Voice Assistant</span>
             </div>
-
-            {/* Content (Voice Panel) */}
-            <div className="flex-1 overflow-y-auto flex flex-col min-h-0 bg-white custom-scrollbar">
-              <VoiceAssistantSidebarPanel />
-            </div>
+            <button
+              onClick={() => setShowFloatingPanel(false)}
+              className="text-white/80 hover:text-white transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
           </div>
-        )}
 
-        {/* Floating Action Button (FAB) with pulsing rings for user focus */}
-        <div className="relative">
-          {!showFloatingPanel && (
-            <>
-              <span className="absolute inset-0 rounded-full bg-[#0da487]/25 animate-ping" style={{ animationDuration: '2.5s' }} />
-              <span className="absolute -inset-1 rounded-full bg-[#0da487]/10 animate-pulse" />
-            </>
-          )}
-          <button
-            onClick={() => setShowFloatingPanel(!showFloatingPanel)}
-            className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl border cursor-pointer transition-all duration-300 bg-white text-gray-700 border-gray-100 hover:scale-105 active:scale-95 z-10"
-            style={{ boxShadow: "0 8px 24px rgba(13, 164, 135, 0.3)", borderRadius: "50%" }}
-          >
-            {showFloatingPanel ? (
-              <ChevronDown size={22} className="text-[#0da487]" />
-            ) : (
-              <Mic size={22} className="text-[#0da487] animate-pulse" />
-            )}
-          </button>
+          {/* Content (Voice Panel) */}
+          <div className="flex-1 overflow-y-auto flex flex-col min-h-0 bg-white custom-scrollbar">
+            <VoiceAssistantSidebarPanel />
+          </div>
         </div>
+      )}
+
+      {/* Floating Action Button (FAB) with pulsing rings */}
+      <div className="relative">
+        {!showFloatingPanel && (
+          <>
+            <span
+              className="block absolute inset-0 rounded-full bg-[#4967a9]/25 animate-ping"
+              style={{ animationDuration: '2.5s', borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
+            />
+            <span
+              className="block absolute -inset-1 rounded-full bg-[#4967a9]/10 animate-pulse"
+              style={{ borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
+            />
+          </>
+        )}
+        <button
+          onClick={() => setShowFloatingPanel(!showFloatingPanel)}
+          className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl border cursor-pointer transition-all duration-300 bg-white text-gray-700 border-gray-100 hover:scale-105 active:scale-95 z-10 overflow-hidden"
+          style={{ boxShadow: "0 8px 24px rgba(73, 103, 169, 0.35)", borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
+        >
+          {showFloatingPanel ? (
+            <ChevronDown size={22} className="text-[#4967a9]" />
+          ) : (
+            <Mic size={22} className="text-[#4967a9] animate-pulse" />
+          )}
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
+    <>
+      {/* On Mobile Screens (lg:hidden): Always show Voice Assistant FAB on all pages */}
+      <div className="lg:hidden">
+        {renderFloatingVoiceAgent()}
+      </div>
+
+      {/* On Desktop Screens (lg:block): Homepage shows FAB, inner pages show Sidebar */}
+      {isHomepage ? (
+        <div className="hidden lg:block">
+          {renderFloatingVoiceAgent()}
+        </div>
+      ) : (
     <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[400px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-2xl overflow-hidden font-sans">
       {/* TOP HALF: CART */}
       <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
@@ -1279,6 +1301,8 @@ export default function RightSidebar() {
           background: #cbd5e1;
         }
       `}</style>
-    </aside >
+        </aside>
+      )}
+    </>
   );
 }
