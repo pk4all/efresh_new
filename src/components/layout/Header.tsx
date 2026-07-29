@@ -18,15 +18,10 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import CartDrawer from "@/components/cart/CartDrawer";
 import AuthModal from "@/components/auth/AuthModal";
 import PincodeModal from "@/components/layout/PincodeModal";
+import SearchTypeahead from "@/components/layout/SearchTypeahead";
 
 const categories = [
-  "All Categories",
-  "Vegetables & Fruit",
-  "Beverages",
-  "Dairy & Breakfast",
-  "Biscuits & Snacks",
-  "Frozen Foods",
-  "Grocery & Staples",
+
 ];
 
 export default function Header() {
@@ -94,8 +89,8 @@ export default function Header() {
   return (
     <>
       <header
-        className="sticky top-0 z-50 bg-white border-b"
-        style={{ borderColor: "#eceff1", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+        className="relative z-[60] bg-white border-b"
+        style={{ borderColor: "#eceff1" }}
       >
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4 select-none">
           {/* Logo */}
@@ -125,22 +120,7 @@ export default function Header() {
 
           {/* Search bar */}
           <div className="flex-1 max-w-2xl mx-2 hidden md:block">
-            <div className="relative flex border rounded-sm overflow-hidden bg-white" style={{ borderColor: "#eceff1" }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="I'm searching for..."
-                className="flex-1 px-4 py-2.5 text-sm outline-none bg-white text-gray-800"
-              />
-              <Link
-                href={`/products?q=${searchQuery}`}
-                className="px-5 flex items-center justify-center transition-colors text-white hover:opacity-90 cursor-pointer"
-                style={{ backgroundColor: "#4967a9" }}
-              >
-                <Search size={18} className="stroke-[2.5]" />
-              </Link>
-            </div>
+            <SearchTypeahead />
           </div>
 
           {/* Right icons */}
@@ -248,22 +228,8 @@ export default function Header() {
         {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t bg-white px-4 py-4" style={{ borderColor: "var(--color-border)" }}>
-            <div className="flex border rounded-sm overflow-hidden mb-3" style={{ borderColor: "var(--color-border)" }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products..."
-                className="flex-1 px-3 py-2.5 text-sm outline-none"
-              />
-              <Link
-                href={`/products?q=${searchQuery}`}
-                className="px-4 flex items-center"
-                style={{ backgroundColor: "var(--color-primary)" }}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Search size={16} className="text-white" />
-              </Link>
+            <div className="mb-3">
+              <SearchTypeahead onSearchSubmit={() => setMobileMenuOpen(false)} />
             </div>
             <div className="flex flex-col gap-1">
               {[

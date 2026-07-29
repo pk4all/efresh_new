@@ -100,6 +100,7 @@ export interface GetProductsParams {
   page?: number;
   vendor_id?: string;
   category_id?: string;
+  subcategory_id?: string;
   search?: string;
 }
 
@@ -123,6 +124,9 @@ export async function fetchProducts(params: GetProductsParams = {}) {
 
   if (params.category_id) {
     queryParams.append("category_id", params.category_id);
+  }
+  if (params.subcategory_id) {
+    queryParams.append("subcategory_id", params.subcategory_id);
   }
   if (params.search) {
     queryParams.append("search", params.search);
@@ -156,6 +160,9 @@ export async function fetchProductsFromAgent(params: GetProductsParams = {}) {
 
   if (params.category_id) {
     queryParams.append("category_id", params.category_id);
+  }
+  if (params.subcategory_id) {
+    queryParams.append("subcategory_id", params.subcategory_id);
   }
   if (params.search) {
     queryParams.append("search", params.search);
@@ -204,14 +211,15 @@ export function mapApiProductToProduct(apiItem: any): any {
   const image = apiItem.product_image && apiItem.product_image !== "NULL"
     ? apiItem.product_image
     : "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop";
-
+  const product_type = apiItem.markups.find((elm: any) => elm.customer_type == 1).unit_name
+  //console.log(product_type, 'product_type')
   return {
     id: String(apiItem.id),
     name: apiItem.product_name || apiItem.product_alt_name || "Unknown Product",
     slug: (apiItem.product_name || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + apiItem.id,
     category: apiItem.category_name || catMap[String(apiItem.cat_id)] || "Groceries",
     price: cost,
-    product_type: apiItem.product_type || apiItem.unit || apiItem.type || "",
+    product_type: product_type || apiItem.product_type || apiItem.unit || apiItem.type || "",
     // originalPrice: cost > 0 ? cost * 1.2 : 0,
     originalPrice: cost,
     image: image,
@@ -219,7 +227,7 @@ export function mapApiProductToProduct(apiItem: any): any {
     reviewCount: Number(apiItem.reviewCount) || 12,
     badge: apiItem.organic ? "Organic" : null,
     stock: 50,
-    description: apiItem.product_desc || "No description available.",
+    description: apiItem.product_desc || "",
     product_name: apiItem.product_name || "",
     category_name: apiItem.category_name || "",
     subcategory_name: apiItem.subcategory_name || "",

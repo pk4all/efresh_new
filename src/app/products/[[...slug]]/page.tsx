@@ -1,10 +1,11 @@
 "use client";
-import { useState, useMemo, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams, useParams } from "next/navigation";
 import { Suspense } from "react";
-import { SlidersHorizontal, Grid, List, ChevronDown, X } from "lucide-react";
+import { Heading4, X } from "lucide-react";
+import Image from "next/image";
 import ProductCard from "@/components/product/ProductCard";
-import { fetchCategories, fetchProducts, mapApiProductToProduct } from "@/utils/api";
+import { fetchCategories, fetchProducts, fetchSubCategories, mapApiProductToProduct, getPublicAssetUrl } from "@/utils/api";
 import { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
 
@@ -21,9 +22,26 @@ interface CategoryApiItem {
   name: string;
 }
 
+function categoryToSlug(name: string): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function ShopContent() {
   const searchParams = useSearchParams();
+  const params = useParams();
+  const slug = params?.slug as string[] | undefined;
+
+  const categorySlug = slug?.[0];
+  const subcategorySlug = slug?.[1];
+
   const initialCategory = searchParams.get("category");
+  const initialSubcategory = searchParams.get("subcategory");
   const searchQuery = searchParams.get("q") || "";
 
   const [categories, setCategories] = useState<CategoryApiItem[]>([]);
@@ -40,13 +58,12 @@ function ShopContent() {
     setStoreProducts(dbProducts);
   }, [dbProducts, setStoreProducts]);
 
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    initialCategory ? [initialCategory] : []
-  );
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [activeSubcategory, setActiveSubcategory] = useState<string>("");
+
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [sort, setSort] = useState("popular");
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -64,13 +81,111 @@ function ShopContent() {
     loadCategories();
   }, []);
 
+  // Resolve category and subcategory from URL slug or searchParams
+  useEffect(() => {
+    if (categorySlug) {
+      const decodedCatSlug = decodeURIComponent(categorySlug).toLowerCase();
+      const matchedCat = categories.find(
+        (c) =>
+          categoryToSlug(c.name) === decodedCatSlug ||
+          c.name.toLowerCase() === decodedCatSlug
+      );
+      if (matchedCat) {
+        setSelectedCategories([matchedCat.name]);
+      } else {
+        // Fallback formatting for slug if categories list is still loading
+        const formatted = decodedCatSlug
+          .replace(/-/g, " ")
+          .replace(/\band\b/g, "&");
+        const cap = formatted
+          .split(" ")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+        setSelectedCategories([cap]);
+      }
+    } else if (initialCategory) {
+      setSelectedCategories([initialCategory]);
+    } else {
+      setSelectedCategories([]);
+    }
+
+    if (subcategorySlug) {
+      setActiveSubcategory(decodeURIComponent(subcategorySlug));
+    } else if (initialSubcategory) {
+      setActiveSubcategory(initialSubcategory);
+    } else {
+      setActiveSubcategory("");
+    }
+  }, [categorySlug, subcategorySlug, initialCategory, initialSubcategory, categories]);
+
   // Reset page to 1 and clear product list when search or category filters change
   useEffect(() => {
     setPage(1);
-  }, [selectedCategories, searchQuery]);
+  }, [selectedCategories, activeSubcategory, searchQuery]);
 
   useEffect(() => {
     async function loadProducts() {
+      const requestedCategory = selectedCategories.length > 0
+        ? selectedCategories[0]
+        : categorySlug
+          ? decodeURIComponent(categorySlug)
+          : initialCategory;
+
+      if (requestedCategory) {
+        const catObj = categories.find(
+          (c) =>
+            c.name.toLowerCase() === requestedCategory.toLowerCase() ||
+            categoryToSlug(c.name) === categoryToSlug(requestedCategory)
+        );
+
+        // If category was requested but not found in backend categories list, do NOT call products API
+        if (!catObj) {
+          setDbProducts([]);
+          setTotalProducts(0);
+          setHasMore(false);
+          setProductsLoading(false);
+          setLoadingMore(false);
+          return;
+        }
+
+        const catId = String(catObj.id);
+        let subId: string | undefined = undefined;
+
+        if (activeSubcategory) {
+          try {
+            const subRes = await fetchSubCategories({ category_id: catId, limit: 100 });
+            const subs = subRes?.data || subRes?.subcategories || (Array.isArray(subRes) ? subRes : []);
+            const activeSubSlug = categoryToSlug(activeSubcategory);
+            const matchedSub = subs.find(
+              (s: any) =>
+                categoryToSlug(s.name || s.subcat_name || "") === activeSubSlug ||
+                (s.name || s.subcat_name || "").toLowerCase() === activeSubcategory.toLowerCase()
+            );
+
+            if (matchedSub) {
+              subId = String(matchedSub.id || matchedSub.subcategory_id);
+            } else {
+              // Subcategory requested but not found in backend, do NOT call products API
+              setDbProducts([]);
+              setTotalProducts(0);
+              setHasMore(false);
+              setProductsLoading(false);
+              setLoadingMore(false);
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to fetch subcategories for product filter:", e);
+          }
+        }
+
+        await fetchApiProducts(catId, subId);
+        return;
+      }
+
+      await fetchApiProducts(undefined, undefined);
+    }
+
+    async function fetchApiProducts(catId?: string, subId?: string) {
       try {
         if (page === 1) {
           setProductsLoading(true);
@@ -78,30 +193,28 @@ function ShopContent() {
           setLoadingMore(true);
         }
 
-        const catObj = selectedCategories.length > 0
-          ? categories.find((c) => c.name === selectedCategories[0])
-          : null;
-        const catId = catObj ? String(catObj.id) : undefined;
-
         const res = await fetchProducts({
           limit: 30,
           page: page,
           category_id: catId,
+          subcategory_id: subId,
           search: searchQuery || undefined,
           vendor_id: "vendor_test6",
         });
 
         const items = res?.data || [];
-        console.log(items, 'items')
         const mapped = items.map(mapApiProductToProduct);
 
         setDbProducts((prev) => (page === 1 ? mapped : [...prev, ...mapped]));
 
         const totalPages = res?.pagination?.totalPages || 0;
         setTotalProducts(res?.pagination?.total || 0);
-        setHasMore(page < totalPages);
+        setHasMore(page < totalPages && mapped.length > 0);
       } catch (err) {
         console.error("Failed to load products on shop page:", err);
+        setDbProducts([]);
+        setTotalProducts(0);
+        setHasMore(false);
       } finally {
         setProductsLoading(false);
         setLoadingMore(false);
@@ -111,13 +224,7 @@ function ShopContent() {
     if (categories.length > 0 || !loading) {
       loadProducts();
     }
-  }, [page, selectedCategories, searchQuery, categories, loading]);
-
-  const toggleCategory = (catName: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
-    );
-  };
+  }, [page, selectedCategories, activeSubcategory, searchQuery, categories, loading, categorySlug, initialCategory]);
 
   const filtered = useMemo(() => {
     let result = [...products];
@@ -125,16 +232,16 @@ function ShopContent() {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q)
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.category || "").toLowerCase().includes(q) ||
+          (p.description || "").toLowerCase().includes(q)
       );
     }
     if (selectedCategories.length > 0) {
       result = result.filter((p) => {
-        const prodLower = p.category.toLowerCase();
+        const prodLower = (p.category || "").toLowerCase();
         return selectedCategories.some((selCat) => {
-          const selLower = selCat.toLowerCase();
+          const selLower = (selCat || "").toLowerCase();
           return prodLower.includes(selLower) || selLower.includes(prodLower);
         });
       });
@@ -154,91 +261,18 @@ function ShopContent() {
 
   const paginated = filtered;
 
-
-
-  const Sidebar = () => (
-    <aside className="w-full space-y-6">
-      {/* Categories */}
-      <div>
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--color-dark)" }}>
-          Categories
-        </h3>
-        <div className="space-y-2">
-          {loading ? (
-            <span className="text-xs text-gray-400 font-medium">Loading categories...</span>
-          ) : categories.length === 0 ? (
-            <span className="text-xs text-gray-400 font-medium">No categories</span>
-          ) : (
-            categories.map((cat) => {
-              const count = dbProducts.filter((p) => {
-                const prodLower = p.category.toLowerCase();
-                const catLower = cat.name.toLowerCase();
-                return prodLower.includes(catLower) || catLower.includes(prodLower);
-              }).length;
-
-              return (
-                <label key={cat.id} className="flex items-center gap-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={selectedCategories.includes(cat.name)}
-                    onChange={() => toggleCategory(cat.name)}
-                    className="w-4 h-4 accent-primary rounded"
-                    style={{ accentColor: "var(--color-primary)" }}
-                  />
-                  <span className="text-sm group-hover:text-primary transition-colors" style={{ color: "var(--color-dark)" }}>
-                    {cat.name}
-                  </span>
-                  <span className="ml-auto text-xs text-gray-400">
-                    ({count})
-                  </span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Price range */}
-      <div>
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--color-dark)" }}>
-          Price Range
-        </h3>
-        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-          <span>${priceRange[0]}</span>
-          <span className="flex-1 text-center">—</span>
-          <span>${priceRange[1]}</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={1000}
-          step={1}
-          value={priceRange[1]}
-          onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
-          className="w-full"
-          style={{ accentColor: "var(--color-primary)" }}
-        />
-      </div>
-
-      {/* Clear */}
-      {(selectedCategories.length > 0) && (
-        <button
-          onClick={() => { setSelectedCategories([]); setPriceRange([0, 1000]); }}
-          className="flex items-center gap-1 text-xs font-semibold"
-          style={{ color: "var(--color-danger)" }}
-        >
-          <X size={12} /> Clear all filters
-        </button>
-      )}
-    </aside>
-  );
+  const currentCategoryName = selectedCategories[0] || (categorySlug ? categorySlug.replace(/-/g, " ") : "");
+  const pageTitle = searchQuery
+    ? `Search Results for "${searchQuery}"`
+    : currentCategoryName
+      ? `${currentCategoryName}${activeSubcategory ? ` - ${activeSubcategory.replace(/-/g, " ")}` : ""}`
+      : "Shop All Products";
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="section-title mb-6">
-        {searchQuery ? `Search Results for "${searchQuery}"` : "Shop All Products"}
-      </h1>
-
+      <h4 className="section-title mb-6 capitalize">
+        {pageTitle}
+      </h4>
       {/* Main Content Area (Full Width) */}
       <div className="w-full">
         {/* Toolbar */}
@@ -256,15 +290,15 @@ function ShopContent() {
             ))}
           </div>
         ) : paginated.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-4xl mb-3">🛒</p>
+          <div className="text-center py-20 flex flex-col items-center justify-center">
+            <Image
+              src={getPublicAssetUrl("/images/notfound.svg")}
+              alt="No products match your filters"
+              width={140}
+              height={140}
+              className="mb-4 object-contain"
+            />
             <p className="font-semibold text-gray-500">No products match your filters.</p>
-            <button
-              onClick={() => { setSelectedCategories([]); }}
-              className="mt-3 btn-outline text-sm"
-            >
-              Clear filters
-            </button>
           </div>
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -294,7 +328,7 @@ function ShopContent() {
         )}
 
         {/* Load More Button */}
-        {hasMore && !productsLoading && (
+        {hasMore && !productsLoading && paginated.length > 0 && (
           <div className="flex justify-center mt-8 min-h-[50px] items-center">
             <button
               onClick={() => setPage((p) => p + 1)}

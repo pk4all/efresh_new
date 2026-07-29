@@ -2,7 +2,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Heart, ShoppingCart, Eye } from "lucide-react";
+import { Heart, ShoppingCart, Eye, Info } from "lucide-react";
+import { Tooltip } from "react-tooltip";
 import { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
@@ -85,27 +86,52 @@ export default function ProductCard({ product }: Props) {
             </span>
           )}
 
-          {/* Hover actions */}
-          <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <button
-              onClick={handleWishlist}
-              className="w-8 h-8 rounded-full bg-white shadow flex items-center justify-center hover:scale-110 transition-transform"
-              title="Wishlist"
-            >
-              <Heart
-                size={15}
-                fill={isWishlisted ? "#ef4444" : "none"}
-                stroke={isWishlisted ? "#ef4444" : "currentColor"}
-                className="text-gray-600"
-              />
-            </button>
-            <button
-              onClick={(e) => { e.preventDefault(); setQuickView(true); }}
-              className="w-8 h-8 rounded-full bg-white shadow flex items-center justify-center hover:scale-110 transition-transform"
-              title="Quick View"
-            >
-              <Eye size={15} className="text-gray-600" />
-            </button>
+          {/* Top-Right Action Buttons */}
+          <div className="absolute top-2.5 right-2.5 flex flex-col items-center gap-1.5 z-30">
+            {/* Info (Description Tooltip) Button - Only shown if description exists */}
+            {
+              //product.description && product.description.trim().length > 0 && (
+              <div>
+                <button
+                  data-tooltip-id={`prod-desc-${product.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer block"
+                  aria-label="Product Description"
+                >
+                  <Info size={19} className="stroke-[2.2] text-gray-400 hover:text-gray-600" />
+                </button>
+              </div>
+              // )
+            }
+
+            {/* Other Actions (Wishlist & Quick View) - Show Only on Card Hover */}
+            <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              {/* Wishlist Button */}
+              <button
+                onClick={handleWishlist}
+                className="w-8 h-8 bg-white shadow-xs flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                title="Wishlist"
+              >
+                <Heart
+                  size={15}
+                  fill={isWishlisted ? "#ef4444" : "none"}
+                  stroke={isWishlisted ? "#ef4444" : "currentColor"}
+                  className="text-gray-600"
+                />
+              </button>
+
+              {/* Quick View Button */}
+              <button
+                onClick={(e) => { e.preventDefault(); setQuickView(true); }}
+                className="w-8 h-8 bg-white shadow-xs flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                title="Quick View"
+              >
+                <Eye size={15} className="text-gray-600" />
+              </button>
+            </div>
           </div>
         </Link>
 
@@ -194,6 +220,22 @@ export default function ProductCard({ product }: Props) {
           )}
         </div>
       </div>
+
+      <Tooltip
+        id={`prod-desc-${product.id}`}
+        // place="top"
+        style={{
+          zIndex: 9999,
+          maxWidth: "240px",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          fontSize: "12px",
+          lineHeight: "1.4",
+          padding: "6px 10px",
+        }}
+      >
+        {product.description || product.name}
+      </Tooltip>
 
       {quickView && <QuickViewModal product={product} onClose={() => setQuickView(false)} />}
     </>

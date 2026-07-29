@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Drawer } from "rsuite";
-import { Truck, Package, ShoppingBag, ChevronDown, X, Loader2 } from "lucide-react";
+import { Truck, Package, ShoppingBag, ChevronDown, X, Loader2, MapPin, CheckCircle2, Store } from "lucide-react";
 import { getVendorByPincode } from "@/utils/api";
 import { toast } from "sonner";
+import "rsuite/dist/rsuite-no-reset.min.css";
 
 interface PincodeModalProps {
   forceOpen?: boolean;
@@ -103,7 +104,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
     }
     localStorage.setItem("shop_type", shopType);
 
-    toast.success("Location settings saved!");
+    toast.success("Location & fulfillment preferences saved!");
     window.dispatchEvent(new Event("pincode-updated"));
     window.dispatchEvent(new Event("storage"));
     handleClose();
@@ -122,57 +123,70 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
       closeButton={false}
       className="pincode-drawer"
     >
-      <Drawer.Body className="p-4 bg-white flex flex-col justify-between h-full font-sans select-none text-xs">
-        <div className="space-y-4">
-          {/* Header with Primary Blue Theme Accent */}
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-            <h2 className="text-base font-black tracking-tight uppercase font-sans text-[#4967a9]">
-              SET MY LOCATION
-            </h2>
+      <Drawer.Body className="p-0 bg-white flex flex-col justify-between h-full font-sans select-none overflow-y-auto custom-scrollbar">
+        <div className="p-5 space-y-5">
+
+          {/* Elegant Top Header Bar */}
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+            <div>
+              <h6 className="text-base font-black tracking-tight uppercase text-[#4967a9] m-0">
+                SET YOUR LOCATION
+              </h6>
+              <p className="text-[11px] text-gray-500 font-medium m-0 mt-0.5">
+                Check delivery &amp; store options for your area
+              </p>
+            </div>
             {isDismissible && (
               <button
                 type="button"
                 onClick={handleClose}
-                className="p-1 rounded-md text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                aria-label="Close drawer"
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+                aria-label="Close location drawer"
               >
-                <X size={18} className="stroke-[2.5]" />
+                <X size={18} strokeWidth={2.5} />
               </button>
             )}
           </div>
 
-          {/* Delivery Pass Offer Box with Secondary Green (#6BBE59) Icon */}
-          <div className="p-2.5 border border-gray-300 rounded-md flex items-center gap-2 bg-white shadow-xs">
-            <div className="text-[#6BBE59] flex-shrink-0">
-              <Truck size={18} className="stroke-[1.75]" />
+          {/* Delivery Pass Offer Badge */}
+          <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 flex items-start gap-3 shadow-2xs">
+            <div className="text-[#6BBE59] p-1 bg-white border border-emerald-100 flex-shrink-0">
+              <Truck size={18} strokeWidth={2} />
             </div>
-            <p className="text-[11px] text-gray-700 font-medium leading-snug">
-              Free delivery on orders over $200 ($120 for delivery pass holders).
-            </p>
+            <div className="text-xs text-gray-800 leading-snug">
+              <span className="font-bold text-emerald-800 block mb-0.5">Free Delivery Offer</span>
+              <span>Free delivery on orders over $200 ($120 for delivery pass holders).</span>
+            </div>
           </div>
 
-          {/* Postcode Search Input Row */}
-          <div>
-            <form onSubmit={handleSearchStores} className="flex border border-gray-300 rounded-md overflow-hidden focus-within:border-[#4967a9] focus-within:ring-1 focus-within:ring-[#4967a9] transition-all bg-white">
+          {/* Postcode Search Input Form */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-gray-800 uppercase tracking-wider block">
+              Enter Postcode / Suburb
+            </label>
+            <form onSubmit={handleSearchStores} className="flex border border-gray-200 bg-white shadow-2xs focus-within:border-[#4967a9] transition-all">
+              <div className="flex items-center pl-3 text-gray-400">
+                <MapPin size={16} className="text-[#4967a9]" />
+              </div>
               <input
                 type="text"
-                placeholder="What's your postcode?"
+                placeholder="What's your postcode? (e.g. 20117)"
                 value={pincode}
                 onChange={(e) => {
                   setPincode(e.target.value);
                   setError("");
                 }}
-                className="flex-1 px-3 py-2 text-xs text-gray-800 outline-none font-medium placeholder:text-gray-400 min-w-0"
+                className="flex-1 px-2.5 py-2.5 text-xs text-gray-800 outline-none font-semibold placeholder:text-gray-400 min-w-0"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-[#6BBE59] hover:bg-[#5da84d] active:bg-[#529743] text-white font-bold px-3.5 py-2 text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 whitespace-nowrap min-w-[95px]"
+                className="bg-[#6BBE59] hover:bg-[#5da84d] active:scale-98 text-white font-bold px-4 py-2.5 text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 whitespace-nowrap"
               >
                 {loading ? (
                   <>
-                    <Loader2 size={13} className="animate-spin" />
-                    Finding...
+                    <Loader2 size={14} className="animate-spin" />
+                    Checking...
                   </>
                 ) : (
                   "Find Stores"
@@ -180,55 +194,78 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
               </button>
             </form>
             {error && (
-              <p className="text-red-500 text-[11px] font-semibold mt-1">{error}</p>
+              <p className="text-red-500 text-[11px] font-semibold mt-1 flex items-center gap-1">
+                <span>⚠️</span> {error}
+              </p>
             )}
           </div>
 
-          {/* How would you like to shop? */}
-          <div className="pt-1">
-            <h3 className="text-xs font-semibold text-gray-800 mb-2">
+          {/* Fulfillment Option Cards */}
+          <div className="space-y-2 pt-1">
+            <h6 className="text-xs font-bold text-gray-900 uppercase tracking-wider m-0">
               How would you like to shop?
-            </h3>
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              {/* Express Local Option */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShopType("express")}
-                  className={`w-full h-full p-2.5 rounded-md flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all ${shopType === "express"
-                    ? "bg-[#6BBE59] text-white shadow-sm"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
-                    }`}
-                >
-                  <Package size={22} className="stroke-[1.75]" />
-                  <span className="font-bold text-xs tracking-tight">Express Local</span>
-                </button>
-              </div>
+            </h6>
 
-              {/* Click & Collect Option */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {/* Express Local Delivery */}
+              <button
+                type="button"
+                onClick={() => setShopType("express")}
+                className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "express"
+                  ? "bg-emerald-50/70 border-2 border-[#6BBE59] text-gray-900 shadow-2xs"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                  }`}
+              >
+                {shopType === "express" && (
+                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[#6BBE59]" />
+                )}
+                <div className={`p-2 ${shopType === "express" ? "bg-[#6BBE59] text-white" : "bg-gray-100 text-gray-600"}`}>
+                  <Package size={20} strokeWidth={2} />
+                </div>
+                <div>
+                  <span className="font-bold text-xs block leading-tight">Express Local</span>
+                  <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Doorstep Delivery</span>
+                </div>
+              </button>
+
+              {/* Click & Collect */}
               <button
                 type="button"
                 onClick={() => setShopType("collect")}
-                className={`w-full p-2.5 rounded-md flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all ${shopType === "collect"
-                  ? "bg-[#6BBE59] text-white shadow-sm"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
+                className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "collect"
+                  ? "bg-emerald-50/70 border-2 border-[#6BBE59] text-gray-900 shadow-2xs"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                   }`}
               >
-                <ShoppingBag size={22} className="stroke-[1.75]" />
-                <span className="font-bold text-xs tracking-tight">Click &amp; Collect</span>
+                {shopType === "collect" && (
+                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[#6BBE59]" />
+                )}
+                <div className={`p-2 ${shopType === "collect" ? "bg-[#6BBE59] text-white" : "bg-gray-100 text-gray-600"}`}>
+                  <ShoppingBag size={20} strokeWidth={2} />
+                </div>
+                <div>
+                  <span className="font-bold text-xs block leading-tight">Click &amp; Collect</span>
+                  <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Pickup in Store</span>
+                </div>
               </button>
             </div>
           </div>
 
-          {/* Select store dropdown */}
-          <div>
+          {/* Select Store Dropdown */}
+          <div className="space-y-1.5 pt-1">
+            <label className="text-[11px] font-semibold text-gray-600 block">
+              Preferred Pickup Store
+            </label>
             <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <Store size={15} className="text-[#4967a9]" />
+              </div>
               <select
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
-                className="w-full appearance-none border border-gray-300 rounded-md px-3 py-2 text-xs text-gray-700 bg-white font-medium pr-8 outline-none focus:border-[#4967a9] cursor-pointer"
+                className="w-full appearance-none border border-gray-200 pl-9 pr-8 py-2.5 text-xs text-gray-800 bg-white font-semibold outline-none focus:border-[#4967a9] cursor-pointer shadow-2xs"
               >
-                <option value="">Select store</option>
+                <option value="">Select store location</option>
                 {stores.length > 0 ? (
                   stores.map((s: any) => (
                     <option key={s.id || s.slug || s.name} value={s.slug || s.name}>
@@ -236,43 +273,42 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
                     </option>
                   ))
                 ) : (
-                  <option value="main-store">Main Local Store</option>
+                  <option value="main-store">Main Local Store (Express Available)</option>
                 )}
               </select>
               <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none stroke-[2.5]"
+                size={15}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none stroke-[2.5]"
               />
             </div>
           </div>
 
-          {/* Reserve Collection / Confirm Action */}
-          <div className="space-y-2 pt-1">
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-2">
             <button
               type="button"
               onClick={handleConfirmStore}
-              className={`w-full py-2.5 rounded-md text-xs font-bold text-center transition-all ${shopType === "collect"
-                ? "bg-[#6BBE59] hover:bg-[#5da84d] text-white cursor-pointer shadow-sm"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                }`}
-              disabled={shopType !== "collect"}
+              className="w-full py-3 text-xs font-bold text-white bg-[#6BBE59] hover:bg-[#5da84d] active:scale-[0.99] text-center transition-all cursor-pointer shadow-sm hover:shadow-md uppercase tracking-wider"
             >
-              Reserve Collection
+              {shopType === "collect" ? "Reserve Collection" : "Save Delivery Location"}
             </button>
 
-            <button
-              type="button"
-              onClick={handleConfirmStore}
-              className="w-full py-2.5 rounded-md text-xs font-bold text-gray-700 border border-gray-300 bg-white hover:bg-gray-50 text-center transition-colors cursor-pointer"
-            >
-              Decide Later
-            </button>
+            {isDismissible && (
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full py-2.5 text-xs font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 text-center transition-colors cursor-pointer"
+              >
+                Decide Later
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* Minimum Order Value Alert Box at Bottom */}
-        <div className="mt-4 p-2.5 border border-[#F8B4B4] bg-[#FDF2F2] rounded-md text-center text-[11px] text-[#991B1B] font-medium">
-          Minimum order value for delivery is <span className="font-extrabold text-[#991B1B]">$50</span>
+          {/* Minimum Order Alert Banner */}
+          <div className="p-3 border border-amber-200 bg-amber-50/70 text-center text-xs text-amber-900 font-medium">
+            Minimum order value for delivery is <strong className="text-amber-950 font-black">$50</strong>
+          </div>
+
         </div>
       </Drawer.Body>
     </Drawer>

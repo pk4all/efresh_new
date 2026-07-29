@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { X, ShoppingBag, ChevronRight, Minus, Plus, Trash2 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
+import { getPublicAssetUrl } from "@/utils/api";
 
 export default function CartDrawer() {
   const isOpen = useCartStore((s) => s.isOpen);
@@ -60,8 +61,14 @@ export default function CartDrawer() {
         {/* Items */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-              <ShoppingBag size={56} className="text-gray-200" />
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-6">
+              <Image
+                src={getPublicAssetUrl("/images/notfound.svg")}
+                alt="Your cart is empty"
+                width={110}
+                height={110}
+                className="object-contain mb-1"
+              />
               <p className="font-semibold text-gray-500">Your cart is empty</p>
               <p className="text-sm text-gray-400">Add items to get started</p>
               <Link

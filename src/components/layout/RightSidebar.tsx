@@ -11,7 +11,7 @@ import {
 import { useCartStore } from "@/store/cartStore";
 import { useAgentStore } from "@/store/agentStore";
 import { toast } from "sonner";
-import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sendAgentChatMessage } from "@/utils/api";
+import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sendAgentChatMessage, getPublicAssetUrl } from "@/utils/api";
 import { Product } from "@/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -1089,7 +1089,7 @@ export default function RightSidebar() {
             style={{ boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.15)" }}
           >
             {/* Header */}
-            <div className="bg-[#0da487] text-white px-4 py-3.5 flex items-center justify-between">
+            <div className="bg-[#4967a9] text-white px-4 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles size={16} className="animate-pulse" />
                 <span className="font-semibold text-sm">eFresh Voice Assistant</span>
@@ -1159,9 +1159,13 @@ export default function RightSidebar() {
         <div className="flex-1 overflow-y-auto px-5 py-4 bg-gray-50/50 space-y-3 custom-scrollbar">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-6">
-              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-1 text-gray-300">
-                <ShoppingBag size={32} />
-              </div>
+              <Image
+                src={getPublicAssetUrl("/images/notfound.svg")}
+                alt="Your cart is empty"
+                width={90}
+                height={90}
+                className="object-contain mb-1"
+              />
               <p className="font-bold text-gray-700 text-sm">Your cart is empty</p>
               <p className="text-xs text-gray-400 max-w-[200px]">Add some fresh items to your cart to checkout!</p>
             </div>
@@ -1245,8 +1249,8 @@ export default function RightSidebar() {
 
       {/* BOTTOM HALF: VOICE ASSISTANT */}
       <div className="h-1/2 flex flex-col overflow-hidden bg-white">
-        {/* Voice Header with solid teal background like the screenshot */}
-        <div className="flex items-center justify-between px-6 py-4 bg-[#0da487] text-white">
+        {/* Voice Header with solid background matching brand color */}
+        <div className="flex items-center justify-between px-6 py-4 bg-[#4967a9] text-white">
           <div className="flex items-center gap-2.5">
             <Sparkles size={18} className="animate-pulse text-white" />
             <h6 className="font-bold text-sm text-white tracking-wider">

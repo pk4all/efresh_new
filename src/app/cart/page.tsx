@@ -5,6 +5,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from "lucide-react"
 import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
+import { getPublicAssetUrl } from "@/utils/api";
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items);
@@ -35,8 +36,14 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-20 text-center">
-        <ShoppingBag size={72} className="mx-auto mb-4 text-gray-200" />
+      <div className="max-w-xl mx-auto px-4 py-20 text-center flex flex-col items-center justify-center">
+        <Image
+          src={getPublicAssetUrl("/images/notfound.svg")}
+          alt="Your cart is empty"
+          width={150}
+          height={150}
+          className="mx-auto mb-4 object-contain"
+        />
         <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--color-dark)" }}>
           Your cart is empty
         </h1>
