@@ -129,7 +129,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
           {/* Elegant Top Header Bar */}
           <div className="flex items-center justify-between pb-3 border-b border-gray-100">
             <div>
-              <h6 className="text-base font-black tracking-tight uppercase text-[#4967a9] m-0">
+              <h6 className="text-base font-black tracking-tight uppercase text-[var(--theme-color1)] m-0">
                 SET YOUR LOCATION
               </h6>
               <p className="text-[11px] text-gray-500 font-medium m-0 mt-0.5">
@@ -150,7 +150,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
 
           {/* Delivery Pass Offer Badge */}
           <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 flex items-start gap-3 shadow-2xs">
-            <div className="text-[#6BBE59] p-1 bg-white border border-emerald-100 flex-shrink-0">
+            <div className="text-[var(--theme-color1)] p-1 bg-white border border-emerald-100 flex-shrink-0">
               <Truck size={18} strokeWidth={2} />
             </div>
             <div className="text-xs text-gray-800 leading-snug">
@@ -164,9 +164,9 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
             <label className="text-xs font-bold text-gray-800 uppercase tracking-wider block">
               Enter Postcode / Suburb
             </label>
-            <form onSubmit={handleSearchStores} className="flex border border-gray-200 bg-white shadow-2xs focus-within:border-[#4967a9] transition-all">
+            <form onSubmit={handleSearchStores} className="flex border border-gray-200 bg-white shadow-2xs focus-within:border-[var(--theme-color1)] transition-all">
               <div className="flex items-center pl-3 text-gray-400">
-                <MapPin size={16} className="text-[#4967a9]" />
+                <MapPin size={16} className="text-[var(--theme-color1)]" />
               </div>
               <input
                 type="text"
@@ -181,7 +181,8 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-[#6BBE59] hover:bg-[#5da84d] active:scale-98 text-white font-bold px-4 py-2.5 text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 whitespace-nowrap"
+                className="hover:opacity-90 active:scale-98 text-white font-bold px-4 py-2.5 text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 whitespace-nowrap"
+                style={{ background: "var(--theme-color2)", color: "#ffffff" }}
               >
                 {loading ? (
                   <>
@@ -212,14 +213,14 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
                 type="button"
                 onClick={() => setShopType("express")}
                 className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "express"
-                  ? "bg-emerald-50/70 border-2 border-[#6BBE59] text-gray-900 shadow-2xs"
+                  ? "bg-emerald-50/70 border-2 border-[var(--theme-color1)] text-gray-900 shadow-2xs"
                   : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                   }`}
               >
                 {shopType === "express" && (
-                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[#6BBE59]" />
+                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[var(--theme-color1)]" />
                 )}
-                <div className={`p-2 ${shopType === "express" ? "bg-[#6BBE59] text-white" : "bg-gray-100 text-gray-600"}`}>
+                <div className={`p-2 ${shopType === "express" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={shopType === "express" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}>
                   <Package size={20} strokeWidth={2} />
                 </div>
                 <div>
@@ -233,14 +234,14 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
                 type="button"
                 onClick={() => setShopType("collect")}
                 className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "collect"
-                  ? "bg-emerald-50/70 border-2 border-[#6BBE59] text-gray-900 shadow-2xs"
+                  ? "bg-emerald-50/70 border-2 border-[var(--theme-color1)] text-gray-900 shadow-2xs"
                   : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                   }`}
               >
                 {shopType === "collect" && (
-                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[#6BBE59]" />
+                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[var(--theme-color1)]" />
                 )}
-                <div className={`p-2 ${shopType === "collect" ? "bg-[#6BBE59] text-white" : "bg-gray-100 text-gray-600"}`}>
+                <div className={`p-2 ${shopType === "collect" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={shopType === "collect" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}>
                   <ShoppingBag size={20} strokeWidth={2} />
                 </div>
                 <div>
@@ -258,12 +259,12 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                <Store size={15} className="text-[#4967a9]" />
+                <Store size={15} className="text-[var(--theme-color1)]" />
               </div>
               <select
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
-                className="w-full appearance-none border border-gray-200 pl-9 pr-8 py-2.5 text-xs text-gray-800 bg-white font-semibold outline-none focus:border-[#4967a9] cursor-pointer shadow-2xs"
+                className="w-full appearance-none border border-gray-200 pl-9 pr-8 py-2.5 text-xs text-gray-800 bg-white font-semibold outline-none focus:border-[var(--theme-color1)] cursor-pointer shadow-2xs"
               >
                 <option value="">Select store location</option>
                 {stores.length > 0 ? (
@@ -288,7 +289,8 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
             <button
               type="button"
               onClick={handleConfirmStore}
-              className="w-full py-3 text-xs font-bold text-white bg-[#6BBE59] hover:bg-[#5da84d] active:scale-[0.99] text-center transition-all cursor-pointer shadow-sm hover:shadow-md uppercase tracking-wider"
+              className="w-full py-3 text-xs font-bold text-white active:scale-[0.99] text-center transition-all cursor-pointer shadow-sm hover:shadow-md hover:opacity-90 uppercase tracking-wider"
+              style={{ background: "var(--theme-color2)", color: "#ffffff" }}
             >
               {shopType === "collect" ? "Reserve Collection" : "Save Delivery Location"}
             </button>

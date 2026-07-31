@@ -10,7 +10,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 import QuickViewModal from "./QuickViewModal";
 import StarRating from "./StarRating";
-import { getPublicAssetUrl } from "@/utils/api";
+import { getPublicAssetUrl, getCategoryUrl } from "@/utils/api";
 interface Props {
   product: Product;
 }
@@ -63,14 +63,14 @@ export default function ProductCard({ product }: Props) {
         style={{ boxShadow: "var(--shadow-card)" }}
       >
         {/* Image */}
-        <Link href={`/product/${product.slug}`} className="relative block overflow-hidden">
+        <Link href={getCategoryUrl(product)} className="relative block overflow-hidden">
           <div className="relative w-full aspect-square bg-gray-50">
             <Image
               src={product.image}
               alt={product.name}
               fill
               unoptimized
-              className="object-cover transition-transform duration-500 group-hover:scale-108"
+              className="object-contain p-3.5 sm:p-4.5 transition-transform duration-500 group-hover:scale-105"
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
@@ -100,7 +100,7 @@ export default function ProductCard({ product }: Props) {
                   className="w-8 h-8 rounded-full shadow-xs flex items-center justify-center hover:scale-110 transition-all cursor-pointer block"
                   aria-label="Product Description"
                 >
-                  <Info size={16} className="stroke-[2.2] text-gray-500 hover:text-[#4967a9]" />
+                  <Info size={16} className="stroke-[2.2] text-gray-500 hover:text-[var(--theme-color1)]" />
                 </button>
               </div>
             }
@@ -139,7 +139,7 @@ export default function ProductCard({ product }: Props) {
             {product.category}
           </p> */}
           <Link
-            href={`/product/${product.slug}`}
+            href={getCategoryUrl(product)}
             className="text-xs sm:text-sm font-semibold line-clamp-2 mb-1 hover:text-primary transition-colors"
             style={{ color: "var(--color-dark)" }}
           >
@@ -153,69 +153,79 @@ export default function ProductCard({ product }: Props) {
             size={11}
           /> */}
 
-          {/* Price */}
-          <div className="flex items-baseline gap-1.5 mt-auto mb-2 flex-wrap">
-            <span className="font-bold text-sm sm:text-base" style={{ color: "var(--color-primary)" }}>
-              ${product.price.toFixed(2)}
-              {product.product_type && (
-                <span className="text-[10px] sm:text-xs font-semibold text-gray-500 ml-0.5">
-                  / {product.product_type}
+          {/* Price & Add to Cart / Stepper Row */}
+          <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-gray-100/60">
+            {/* Price Column */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-baseline gap-1 flex-wrap">
+                <span className="font-bold text-sm sm:text-base" style={{ color: "var(--color-primary)" }}>
+                  ${product.price.toFixed(2)}
+                  {product.product_type && (
+                    <span className="text-[10px] sm:text-xs font-semibold text-gray-500 ml-0.5">
+                      / {product.product_type}
+                    </span>
+                  )}
                 </span>
+                {product.originalPrice > product.price && (
+                  <span className="text-[10px] sm:text-xs line-through" style={{ color: "var(--color-muted)" }}>
+                    ${product.originalPrice.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              {product.stock < 10 && (
+                <p className="text-[10px] font-medium m-0 leading-none mt-0.5" style={{ color: "var(--color-danger)" }}>
+                  Only {product.stock} left!
+                </p>
               )}
-            </span>
-            {product.originalPrice > product.price && (
-              <span className="text-[11px] sm:text-xs line-through" style={{ color: "var(--color-muted)" }}>
-                ${product.originalPrice.toFixed(2)}
-              </span>
-            )}
-          </div>
-
-          {/* Stock indicator */}
-          {product.stock < 10 && (
-            <p className="text-[11px] sm:text-xs mb-1.5 font-medium" style={{ color: "var(--color-danger)" }}>
-              Only {product.stock} left!
-            </p>
-          )}
-
-          {/* Add to cart / Stepper */}
-          {quantity > 0 ? (
-            <div className="flex items-center justify-between bg-gray-50 border border-gray-200/60 rounded-md overflow-hidden w-full h-8 sm:h-9">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  updateQuantity(product.id, quantity - 1);
-                  toast.success(`Updated ${product.name} quantity to ${quantity - 1}`);
-                }}
-                className="w-8 sm:w-10 h-full flex items-center justify-center bg-gray-100 hover:bg-[#4967a9]/10 hover:text-[#4967a9] text-gray-600 transition-all font-bold text-xs sm:text-sm cursor-pointer"
-              >
-                –
-              </button>
-              <span className="font-bold text-[#222] text-xs md:text-sm">{quantity}</span>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  updateQuantity(product.id, quantity + 1);
-                  toast.success(`Updated ${product.name} quantity to ${quantity + 1}`);
-                }}
-                className="w-8 sm:w-10 h-full flex items-center justify-center bg-gray-100 hover:bg-[#4967a9]/10 hover:text-[#4967a9] text-gray-600 transition-all font-bold text-xs sm:text-sm cursor-pointer"
-              >
-                +
-              </button>
             </div>
-          ) : (
-            <button
-              onClick={handleAddToCart}
-              className="btn-primary w-full text-[11px] sm:text-xs py-1.5 sm:py-2 gap-1 cursor-pointer"
-              style={{
-                backgroundColor: "var(--color-primary)",
-                transition: "background-color 0.3s ease",
-                color: "#fff",
-              }}
-            >
-              <ShoppingCart size={13} />
-              Add to Cart
-            </button>
-          )}
+
+            {/* Cart Button or Stepper */}
+            <div className="shrink-0">
+              {quantity > 0 ? (
+                <div className="flex items-center bg-gray-100/90 p-0.5 border border-gray-200/80 shadow-2xs">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      updateQuantity(product.id, quantity - 1);
+                      toast.success(`Updated ${product.name} quantity to ${quantity - 1}`);
+                    }}
+                    className="w-6 h-6 flex items-center justify-center bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all font-bold text-xs shadow-2xs cursor-pointer active:scale-90"
+                    title="Decrease quantity"
+                  >
+                    –
+                  </button>
+                  <span className="px-1.5 font-bold text-xs text-gray-900 min-w-[18px] text-center">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      updateQuantity(product.id, quantity + 1);
+                      toast.success(`Updated ${product.name} quantity to ${quantity + 1}`);
+                    }}
+                    className="w-6 h-6 flex items-center justify-center bg-white text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-bold text-xs shadow-2xs cursor-pointer active:scale-90"
+                    title="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className="w-8 h-8 flex items-center justify-center text-white transition-all cursor-pointer shadow-2xs active:scale-95 hover:opacity-90 rounded-sm"
+                  style={{ background: "var(--theme-color2)", color: "#ffffff" }}
+                  title="Add to Cart"
+                >
+                  <ShoppingCart
+                    size={15}
+                    strokeWidth={2.2}
+                    className="text-white"
+                  />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

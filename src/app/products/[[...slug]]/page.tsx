@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { Suspense } from "react";
-import { Heading4, X } from "lucide-react";
+import { Heading4, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 import ProductCard from "@/components/product/ProductCard";
 import { fetchCategories, fetchProducts, fetchSubCategories, mapApiProductToProduct, getPublicAssetUrl } from "@/utils/api";
@@ -269,7 +269,7 @@ function ShopContent() {
       : "Shop All Products";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-[1600px] mx-auto px-4 py-8">
       <h4 className="section-title mb-6 capitalize">
         {pageTitle}
       </h4>
@@ -284,7 +284,7 @@ function ShopContent() {
 
         {/* Product grid */}
         {productsLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="animate-pulse bg-gray-100 rounded-2xl h-[280px]" />
             ))}
@@ -301,7 +301,7 @@ function ShopContent() {
             <p className="font-semibold text-gray-500">No products match your filters.</p>
           </div>
         ) : view === "grid" ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {paginated.map((p, idx) => <ProductCard key={`${p.id}-${idx}`} product={p} />)}
           </div>
         ) : (
@@ -338,8 +338,8 @@ function ShopContent() {
             >
               {loadingMore ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  Loading...
+                  <Loader2 size={16} className="animate-spin text-white" />
+                  <span>Loading...</span>
                 </>
               ) : (
                 "Load More"

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { getCategoryUrl, fetchCategories, getPublicAssetUrl } from "@/utils/api";
 import {
   Carrot,
   Coffee,
@@ -29,7 +30,6 @@ import {
   Fish,
 } from "lucide-react";
 import { products } from "@/data/products";
-import { fetchCategories } from "@/utils/api";
 
 interface CategoryApiItem {
   id: number;
@@ -152,10 +152,15 @@ export default function Sidebar() {
       <div className="group relative bg-[#0a1628] rounded-2xl overflow-hidden min-h-[350px] shadow-sm border border-gray-100">
         <div className="absolute inset-0 w-full h-full z-0">
           <Image
-            src="/images/vegetable/banner/8.jpg"
+            src={getPublicAssetUrl("/images/vegetable/banner/8.jpg")}
             alt="Seafood Banner"
             fill
+            unoptimized
             className="object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         </div>
@@ -183,10 +188,15 @@ export default function Sidebar() {
       <div className="group relative bg-[#1c2e1f] rounded-2xl overflow-hidden min-h-[350px] shadow-sm border border-gray-100">
         <div className="absolute inset-0 w-full h-full z-0">
           <Image
-            src="/images/vegetable/banner/11.jpg"
+            src={getPublicAssetUrl("/images/vegetable/banner/11.jpg")}
             alt="Organic Vegetables"
             fill
+            unoptimized
             className="object-cover object-center opacity-85 group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         </div>
@@ -221,7 +231,7 @@ export default function Sidebar() {
           {trendingProducts.map((p) => (
             <Link
               key={p.id}
-              href={`/product/${p.slug}`}
+              href={getCategoryUrl(p)}
               className="flex items-center gap-3 group border-b border-gray-100/50 pb-4 last:border-0 last:pb-0"
             >
               <div className="w-16 h-16 relative bg-[#f8f8f8] rounded-xl overflow-hidden flex-shrink-0">

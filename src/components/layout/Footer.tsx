@@ -147,11 +147,11 @@ export default function Footer() {
           {/* Brand Info */}
           <div className="space-y-4">
             <Link href="/" className="inline-flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-xl bg-[#4967a9] flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-105 transition-transform" style={{ background: "var(--theme-color2)" }}>
                 e
               </div>
               <span className="font-extrabold text-2xl text-white tracking-tight">
-                e<span style={{ color: "#4967a9" }}>Fresh</span>
+                e<span style={{ color: "var(--theme-color1)" }}>Fresh</span>
               </span>
             </Link>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm">
@@ -163,8 +163,9 @@ export default function Footer() {
                 <a
                   key={i}
                   href={item.href}
-                  className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-[#4967a9] flex items-center justify-center transition-all duration-300 text-slate-400 hover:text-white hover:scale-110 shadow-xs"
+                  className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800/80 hover:border-[var(--theme-color1)] hover:bg-[var(--theme-color1)] flex items-center justify-center transition-all duration-300 !text-[var(--theme-color1)] hover:!text-white hover:scale-110 shadow-xs"
                   title={item.name}
+                  style={{ color: "var(--theme-color1)" }}
                 >
                   {item.icon}
                 </a>
@@ -176,7 +177,7 @@ export default function Footer() {
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title} className="space-y-4">
               <h4 className="font-bold text-white text-base tracking-tight flex items-center gap-2">
-                <span className="w-1.5 h-4 bg-[#4967a9] rounded-full inline-block" />
+                <span className="w-1.5 h-4 bg-[var(--theme-color1)] rounded-full inline-block" />
                 {title}
               </h4>
               <ul className="space-y-2.5">
@@ -198,20 +199,20 @@ export default function Footer() {
           {/* Contact & Newsletter */}
           <div className="space-y-4">
             <h4 className="font-bold text-white text-base tracking-tight flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-[#4967a9] rounded-full inline-block" />
+              <span className="w-1.5 h-4 bg-[var(--theme-color1)] rounded-full inline-block" />
               Contact & Deals
             </h4>
             <ul className="space-y-3">
               <li className="flex items-start gap-3 text-xs sm:text-sm text-slate-400">
-                <MapPin size={16} className="mt-0.5 shrink-0 text-[#4967a9]" />
+                <MapPin size={16} className="mt-0.5 shrink-0 text-[var(--theme-color1)]" />
                 <span>123 Fresh Street, Market City, CA 90210</span>
               </li>
               <li className="flex items-center gap-3 text-xs sm:text-sm text-slate-400">
-                <Phone size={16} className="shrink-0 text-[#4967a9]" />
+                <Phone size={16} className="shrink-0 text-[var(--theme-color1)]" />
                 <span>+91 888 104 2340 (24/7 Support)</span>
               </li>
               <li className="flex items-center gap-3 text-xs sm:text-sm text-slate-400">
-                <Mail size={16} className="shrink-0 text-[#4967a9]" />
+                <Mail size={16} className="shrink-0 text-[var(--theme-color1)]" />
                 <span>support@efresh.com</span>
               </li>
             </ul>
@@ -233,13 +234,13 @@ export default function Footer() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-[#4967a9] transition-all placeholder:text-slate-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-[var(--theme-color1)] transition-all placeholder:text-slate-500"
                     />
                   </div>
                   <button
                     type="submit"
                     className="px-4 py-2.5 rounded-xl text-white text-xs font-bold transition-all duration-200 hover:opacity-90 active:scale-95 flex items-center justify-center shrink-0 shadow-sm"
-                    style={{ backgroundColor: "#4967a9" }}
+                    style={{ background: "var(--theme-color2)", color: "#ffffff" }}
                   >
                     <Send size={14} className="mr-1" /> Join
                   </button>

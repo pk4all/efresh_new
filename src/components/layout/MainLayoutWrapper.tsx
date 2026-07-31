@@ -61,7 +61,7 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
 
   return (
       <div className="flex min-h-screen bg-white">
-        <div className={`flex-1 flex flex-col min-h-screen ${isHomepage ? "" : "lg:pr-[400px]"}`}>
+        <div className={`flex-1 flex flex-col min-h-screen ${isHomepage ? "" : "lg:pr-[320px]"}`}>
           <Header />
           <MegaNav />
           <main className="flex-1">{children}</main>

@@ -902,7 +902,7 @@ function VoiceAssistantSidebarPanel() {
       <div className="flex-1 min-h-[220px] overflow-y-auto mb-5 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col gap-3 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 py-8">
-            <Sparkles className="w-8 h-8 text-[#4967a9]/40 mb-2 animate-pulse" />
+            <Sparkles className="w-8 h-8 text-[var(--theme-color1)]/40 mb-2 animate-pulse" />
             <p className="text-xs font-bold text-gray-500">Conversational Voice Agent</p>
             <p className="text-[10px] text-gray-400 max-w-[180px] mt-1">Start the agent and talk to ask questions or navigate the site.</p>
           </div>
@@ -918,9 +918,10 @@ function VoiceAssistantSidebarPanel() {
               </span>
               <div
                 className={`px-3.5 py-2.5 rounded-2xl text-xs shadow-sm leading-relaxed ${msg.sender === "user"
-                  ? "bg-[#4967a9] text-white rounded-tr-none"
+                  ? "text-white rounded-tr-none"
                   : "bg-white text-gray-700 border border-gray-100 rounded-tl-none markdown-body"
                   }`}
+                style={msg.sender === "user" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}
               >
                 {msg.sender === "user" ? (
                   msg.text
@@ -960,7 +961,7 @@ function VoiceAssistantSidebarPanel() {
           onClick={handleToggleRecording}
           className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold cursor-pointer transition-all active:scale-95 ${isAgentActive
             ? "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 animate-pulse"
-            : "bg-[#4967a9]/10 text-[#4967a9] hover:bg-[#4967a9]/20"
+            : "bg-[var(--theme-color1)]/10 text-[var(--theme-color1)] hover:bg-[var(--theme-color1)]/20"
             }`}
         >
           {isAgentActive ? "Stop Agent" : "Start Agent"}
@@ -968,7 +969,7 @@ function VoiceAssistantSidebarPanel() {
       </div>
 
       {/* Command input */}
-      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[#4967a9] transition-all" style={{ display: 'none' }}>
+      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[var(--theme-color1)] transition-all" style={{ display: 'none' }}>
         <input
           type="text"
           value={textCommand}
@@ -978,7 +979,8 @@ function VoiceAssistantSidebarPanel() {
         />
         <button
           type="submit"
-          className="p-2 bg-[#4967a9] text-white rounded-full hover:bg-[#3b548b] transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[#4967a9]/20"
+          className="p-2 text-white rounded-full transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[var(--theme-color1)]/20"
+          style={{ background: "var(--theme-color2)", color: "#ffffff" }}
           title="Send Command"
         >
           <Send size={13} />
@@ -1094,16 +1096,20 @@ export default function RightSidebar() {
           style={{ boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.2)" }}
         >
           {/* Header */}
-          <div className="bg-[#4967a9] text-white px-4 py-3.5 flex items-center justify-between">
+          <div className="text-white px-4 py-2.5 flex items-center justify-between border-b border-white/10" style={{ background: "var(--theme-color2)" }}>
             <div className="flex items-center gap-2">
-              <Sparkles size={16} className="animate-pulse" />
-              <span className="font-semibold text-sm">eFresh Voice Assistant</span>
+              <div className="w-5 h-5 rounded-md bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                <Sparkles size={12} className="animate-pulse text-white" />
+              </div>
+              <span className="font-semibold text-xs text-white/95 tracking-wide">
+                eFresh Voice Assistant
+              </span>
             </div>
             <button
               onClick={() => setShowFloatingPanel(false)}
-              className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="text-white/70 hover:text-white transition-colors cursor-pointer"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           </div>
 
@@ -1119,11 +1125,11 @@ export default function RightSidebar() {
         {!showFloatingPanel && (
           <>
             <span
-              className="block absolute inset-0 rounded-full bg-[#4967a9]/25 animate-ping"
+              className="block absolute inset-0 rounded-full bg-[var(--theme-color1)]/25 animate-ping"
               style={{ animationDuration: '2.5s', borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
             />
             <span
-              className="block absolute -inset-1 rounded-full bg-[#4967a9]/10 animate-pulse"
+              className="block absolute -inset-1 rounded-full bg-[var(--theme-color1)]/10 animate-pulse"
               style={{ borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
             />
           </>
@@ -1131,12 +1137,12 @@ export default function RightSidebar() {
         <button
           onClick={() => setShowFloatingPanel(!showFloatingPanel)}
           className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl border cursor-pointer transition-all duration-300 bg-white text-gray-700 border-gray-100 hover:scale-105 active:scale-95 z-10 overflow-hidden"
-          style={{ boxShadow: "0 8px 24px rgba(73, 103, 169, 0.35)", borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
+          style={{ boxShadow: "0 8px 24px rgba(13, 164, 135, 0.35)", borderRadius: "50%", clipPath: "circle(50% at 50% 50%)" }}
         >
           {showFloatingPanel ? (
-            <ChevronDown size={22} className="text-[#4967a9]" />
+            <ChevronDown size={22} className="text-[var(--theme-color1)]" />
           ) : (
-            <Mic size={22} className="text-[#4967a9] animate-pulse" />
+            <Mic size={22} className="text-[var(--theme-color1)] animate-pulse" />
           )}
         </button>
       </div>
@@ -1156,85 +1162,98 @@ export default function RightSidebar() {
           {renderFloatingVoiceAgent()}
         </div>
       ) : (
-    <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[400px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-2xl overflow-hidden font-sans">
+    <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[320px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-xl overflow-hidden font-sans">
       {/* TOP HALF: CART */}
       <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
         {/* Cart Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#eceff1] bg-white">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#0da487]/10 flex items-center justify-center text-[#0da487]">
-              <ShoppingBag size={18} />
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#eceff1] bg-white">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[var(--theme-color1)]/10 flex items-center justify-center text-[var(--theme-color1)]">
+              <ShoppingBag size={15} />
             </div>
             <div>
-              <h6 className="font-bold text-sm text-gray-800 tracking-wider">
+              <h6 className="font-bold text-xs text-gray-800 tracking-wide">
                 Your Cart
               </h6>
-              <p className="text-[10px] text-gray-400 font-medium">Manage your items</p>
+              <p className="text-[9px] text-gray-400 font-medium">Manage your items</p>
             </div>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#0da487] text-white">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--theme-color1)] text-white">
             {items.reduce((s, i) => s + i.quantity, 0)}
           </span>
         </div>
 
         {/* Cart items list */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 bg-gray-50/50 space-y-3 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50/50 space-y-2 custom-scrollbar">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-6">
+            <div className="flex flex-col items-center justify-center h-full gap-1.5 text-center py-4">
               <Image
                 src={getPublicAssetUrl("/images/notfound.svg")}
                 alt="Your cart is empty"
-                width={90}
-                height={90}
+                width={70}
+                height={70}
                 className="object-contain mb-1"
               />
-              <p className="font-bold text-gray-700 text-sm">Your cart is empty</p>
-              <p className="text-xs text-gray-400 max-w-[200px]">Add some fresh items to your cart to checkout!</p>
+              <p className="font-bold text-gray-700 text-xs">Your cart is empty</p>
+              <p className="text-[11px] text-gray-400 max-w-[180px]">Add some fresh items to your cart to checkout!</p>
             </div>
           ) : (
             items.map((item) => (
               <div
                 key={item.product.id}
-                className="flex gap-3 p-3.5 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200/60 transition-all duration-300"
+                className="flex items-center gap-3 p-3 rounded-md bg-white border border-gray-200/90 shadow-2xs hover:shadow-xs transition-all duration-200"
               >
-                <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
+                <div className="relative w-13 h-13 rounded-xs overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
                   <Image
                     src={item.product.image}
                     alt={item.product.name}
                     fill
                     unoptimized
-                    className="object-cover hover:scale-105 transition-transform duration-300"
-                    sizes="56px"
+                    className="object-cover"
+                    sizes="52px"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+                    }}
                   />
                 </div>
-                <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
-                  <span className="text-xs font-bold text-gray-800 line-clamp-1">{item.product.name}</span>
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <span className="text-xs font-black text-[#0da487]">${(item.product.price * item.quantity).toFixed(2)}</span>
-                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden h-7 bg-white shadow-sm">
+                <div className="flex-1 flex flex-col justify-between min-w-0 h-full py-0.5">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <span className="text-xs font-bold !text-[#0c2646] truncate leading-snug" style={{ color: "#0c2646" }}>{item.product.name}</span>
+                    <button
+                      onClick={() => removeItem(item.product.id)}
+                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
+                      title="Remove item"
+                    >
+                      <Trash2 size={15} className="stroke-[1.75]" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-1.5 mt-1.5">
+                    <span className="text-xs font-bold text-[#0da487] flex items-baseline gap-0.5">
+                      ${(item.product.price * item.quantity).toFixed(2)}
+                      {(item.product.unit_type || item.product.product_type) && (
+                        <span className="text-[10px] font-normal text-[#5282b8] ml-0.5">
+                          / {item.product.unit_type || item.product.product_type}
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center border border-gray-300 rounded-xs bg-white px-2 py-0.5 text-xs shadow-2xs">
                       <button
                         onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        className="px-2 h-full text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
+                        className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
                       >
-                        <Minus size={10} className="stroke-[3]" />
+                        –
                       </button>
-                      <span className="px-2 text-xs font-bold text-gray-700 min-w-[20px] text-center select-none">{item.quantity}</span>
+                      <span className="font-bold text-[#0c2646] px-2 min-w-[16px] text-center select-none">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        className="px-2 h-full text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
+                        className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
                       >
-                        <Plus size={10} className="stroke-[3]" />
+                        +
                       </button>
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => removeItem(item.product.id)}
-                  className="self-center p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
-                  title="Remove item"
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
             ))
           )}
@@ -1242,27 +1261,27 @@ export default function RightSidebar() {
 
         {/* Cart Total Summary / Checkout Buttons */}
         {items.length > 0 && (
-          <div className="p-5 bg-white border-t border-[#eceff1] space-y-4">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-400 font-bold">Total:</span>
-              <span className="text-lg font-black text-gray-800">
+          <div className="p-3.5 bg-white border-t border-[#eceff1] space-y-2.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500 font-semibold">Total:</span>
+              <span className="text-base font-extrabold text-gray-900">
                 ${total.toFixed(2)}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/cart"
-                className="flex items-center justify-center gap-1.5 border-2 border-[#0da487] text-[#0da487] bg-white hover:bg-[#0da487] hover:text-white active:scale-[0.97] font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all duration-300 shadow-sm text-center"
+                className="btn-outline flex-1 py-2 px-2 text-xs font-bold text-center"
               >
-                <ShoppingBag size={14} />
-                View Cart
+                <ShoppingBag size={13} />
+                <span>View Cart</span>
               </Link>
               <Link
                 href="/checkout"
-                className="flex items-center justify-center gap-1.5 border-2 border-[#0da487] text-[#0da487] bg-white hover:bg-[#0da487] hover:text-white active:scale-[0.97] font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all duration-300 shadow-sm text-center"
+                className="btn-primary flex-1 py-2 px-2 text-xs font-bold text-center"
               >
-                Checkout
-                <ChevronRight size={14} />
+                <span>Checkout</span>
+                <ChevronRight size={13} />
               </Link>
             </div>
           </div>
@@ -1271,13 +1290,15 @@ export default function RightSidebar() {
 
       {/* BOTTOM HALF: VOICE ASSISTANT */}
       <div className="h-1/2 flex flex-col overflow-hidden bg-white">
-        {/* Voice Header with solid background matching brand color */}
-        <div className="flex items-center justify-between px-6 py-4 bg-[#4967a9] text-white">
-          <div className="flex items-center gap-2.5">
-            <Sparkles size={18} className="animate-pulse text-white" />
-            <h6 className="font-bold text-sm text-white tracking-wider">
+        {/* Voice Header */}
+        <div className="flex items-center justify-between px-4 py-2.5 text-white border-b border-white/10" style={{ background: "var(--theme-color2)" }}>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+              <Sparkles size={12} className="animate-pulse text-white" />
+            </div>
+            <span className="font-semibold text-xs text-white/95 tracking-wide">
               eFresh Voice Assistant
-            </h6>
+            </span>
           </div>
         </div>
 

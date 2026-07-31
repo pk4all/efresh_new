@@ -55,7 +55,7 @@ export default function CookieConsentDrawer() {
         {/* Accent Bar at top */}
         <div
           className="h-1.5 w-full"
-          style={{ backgroundColor: "var(--color-primary, #4967a9)" }}
+          style={{ background: "var(--theme-color2)" }}
         />
 
         <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar max-w-5xl mx-auto w-full">
@@ -64,7 +64,7 @@ export default function CookieConsentDrawer() {
             <div className="flex items-center gap-3.5">
               <div
                 className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md flex-shrink-0"
-                style={{ backgroundColor: "var(--color-primary, #4967a9)" }}
+                style={{ background: "var(--theme-color2)" }}
               >
                 <Cookie size={26} className="animate-bounce" style={{ animationDuration: "3s" }} />
               </div>
@@ -101,11 +101,11 @@ export default function CookieConsentDrawer() {
           <div className="py-4 space-y-3">
             <p className="text-sm text-gray-600 leading-relaxed m-0">
               Welcome to <strong className="text-gray-900">eFresh</strong>! To provide you with a smooth, secure, and personalized grocery shopping experience, we use essential cookies and tracking technologies. By accepting, you confirm that you agree to our{" "}
-              <Link href="#" className="font-semibold underline underline-offset-2 hover:opacity-80" style={{ color: "var(--color-primary, #4967a9)" }}>
+              <Link href="#" className="font-semibold underline underline-offset-2 hover:opacity-80" style={{ color: "var(--theme-color1)" }}>
                 Terms & Conditions
               </Link>{" "}
               and{" "}
-              <Link href="#" className="font-semibold underline underline-offset-2 hover:opacity-80" style={{ color: "var(--color-primary, #4967a9)" }}>
+              <Link href="#" className="font-semibold underline underline-offset-2 hover:opacity-80" style={{ color: "var(--theme-color1)" }}>
                 Privacy Policy
               </Link>.
             </p>
@@ -131,7 +131,7 @@ export default function CookieConsentDrawer() {
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200/70">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 font-bold text-gray-900 text-sm">
-                      <Cookie size={18} style={{ color: "var(--color-primary, #4967a9)" }} />
+                      <Cookie size={18} style={{ color: "var(--theme-color1)" }} />
                       Analytics & Experience
                     </div>
                     <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
@@ -172,8 +172,9 @@ export default function CookieConsentDrawer() {
                 onClick={handleAccept}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2.5 shadow-lg hover:shadow-xl hover:opacity-95 transition-all cursor-pointer transform active:scale-95"
                 style={{
-                  backgroundColor: "var(--color-primary, #4967a9)",
-                  boxShadow: "0 4px 14px rgba(73, 103, 169, 0.35)",
+                  background: "var(--theme-color2)",
+                  color: "#ffffff",
+                  boxShadow: "0 4px 14px rgba(13, 164, 135, 0.35)",
                 }}
               >
                 <Check size={18} strokeWidth={2.5} />

@@ -2,9 +2,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #4967a9;
-  --color-primary-dark: #3b548b;
-  --color-primary-light: #eceff7;
+  --theme-color: #0da487;
+  --theme-color-rgb: 13, 164, 135;
+  --theme-color1: #0e947a;
+  --theme-color1-rgb: 14, 148, 122;
+  --theme-color2: linear-gradient(90.56deg, var(--theme-color1) 8.46%, var(--theme-color) 62.97%);
+
+  --color-primary: var(--theme-color);
+  --color-primary-dark: var(--theme-color1);
+  --color-primary-light: var(--theme-color1-rgb);
   --color-dark: #222222;
   --color-muted: #6b7280;
   --color-light-bg: #f8f8f8;
@@ -27,6 +33,7 @@
 
   --shadow-card: 0 2px 16px 0 rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 8px 32px 0 rgba(0, 0, 0, 0.12);
+
 }
 
 @layer base {
@@ -112,6 +119,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(250%);
   }
@@ -123,21 +131,28 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    background-color: var(--color-primary);
-    color: #fff !important;
+    background: var(--theme-color2) !important;
+    background-color: var(--color-primary) !important;
+    color: #ffffff !important;
     font-weight: 600;
     font-size: 0.875rem;
     padding: 0.6rem 1.25rem;
     border-radius: 0 !important;
     border: none;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease,
-      box-shadow 0.2s ease;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .btn-primary *,
+  .btn-primary svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+    transition: all 0.2s ease-in-out;
   }
 
   .btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    box-shadow: 0 4px 12px rgba(13, 164, 135, 0.3);
+    opacity: 0.92 !important;
+    box-shadow: 0 4px 12px rgba(13, 164, 135, 0.3) !important;
   }
 
   .btn-primary:active {
@@ -149,19 +164,35 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    background-color: transparent;
-    color: var(--color-primary);
+    background-color: #ffffff !important;
+    color: var(--color-primary) !important;
     font-weight: 600;
     font-size: 0.875rem;
     padding: 0.6rem 1.25rem;
     border-radius: 0 !important;
-    border: 1.5px solid var(--color-primary);
+    border: 1.5px solid var(--color-primary) !important;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .btn-outline *,
+  .btn-outline svg {
+    color: var(--color-primary) !important;
+    stroke: var(--color-primary) !important;
+    transition: all 0.2s ease-in-out;
   }
 
   .btn-outline:hover {
-    background-color: var(--color-primary-light);
+    background: var(--theme-color2) !important;
+    background-color: var(--color-primary) !important;
+    color: #ffffff !important;
+    border-color: var(--color-primary) !important;
+  }
+
+  .btn-outline:hover *,
+  .btn-outline:hover svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
   }
 
   .card {
@@ -285,14 +316,18 @@
   transition: all 0.2s ease-in-out;
 }
 
-.category-nav-item:hover {
-  background-color: #6BBE59 !important;
+.category-nav-item:hover,
+.category-nav-item.active {
+  background: var(--theme-color2) !important;
   color: #ffffff !important;
 }
 
 .category-nav-item:hover *,
 .category-nav-item:hover svg,
-.category-nav-item:hover span {
+.category-nav-item:hover span,
+.category-nav-item.active *,
+.category-nav-item.active svg,
+.category-nav-item.active span {
   color: #ffffff !important;
   stroke: #ffffff !important;
 }
@@ -314,16 +349,16 @@
 
 .dropdown-menu-item:hover {
   background-color: #eceff7 !important;
-  color: #4967a9 !important;
+  color: var(--theme-color1) !important;
 }
 
 .dropdown-menu-item:hover span {
-  color: #4967a9 !important;
+  color: var(--theme-color1) !important;
 }
 
 .dropdown-menu-item:hover svg {
-  color: #4967a9 !important;
-  stroke: #4967a9 !important;
+  color: var(--theme-color1) !important;
+  stroke: var(--theme-color1) !important;
 }
 
 .text-white {

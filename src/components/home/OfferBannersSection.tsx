@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
+import { getPublicAssetUrl } from "@/utils/api";
 
 export default function OfferBannersSection() {
   return (
@@ -27,11 +28,16 @@ export default function OfferBannersSection() {
           {/* Image (Chicken drumsticks) */}
           <div className="absolute right-0 bottom-0 top-0 w-[45%] h-full z-0">
             <Image
-              src="/images/banner_chicken.png"
+              src={getPublicAssetUrl("/images/banner_chicken.png")}
               alt="Fresh MEAT"
               fill
               priority
+              unoptimized
               className="object-contain object-right-bottom p-2 transform group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+              }}
             />
           </div>
         </Link>
@@ -56,11 +62,16 @@ export default function OfferBannersSection() {
           {/* Image (Mushrooms) */}
           <div className="absolute right-0 bottom-0 top-0 w-[45%] h-full z-0">
             <Image
-              src="/images/banner_mushrooms.png"
+              src={getPublicAssetUrl("/images/banner_mushrooms.png")}
               alt="Testy Mushrooms"
               fill
               priority
+              unoptimized
               className="object-contain object-right-bottom p-2 transform group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+              }}
             />
           </div>
         </Link>

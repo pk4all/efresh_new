@@ -207,19 +207,22 @@ export function mapApiProductToProduct(apiItem: any): any {
     "22": "Café",
   };
 
-  const cost = parseFloat(apiItem.package_cost) || 0;
+  const price = Array.isArray(apiItem.markups) ? apiItem.markups.find((elm: any) => elm.customer_type == 1)?.cost_after_tax : apiItem.product_price;
+  console.log(price, 'price');
+  const cost = parseFloat(price) || 0;
   const image = apiItem.product_image && apiItem.product_image !== "NULL"
     ? apiItem.product_image
     : "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop";
-  const product_type = apiItem.markups.find((elm: any) => elm.customer_type == 1).unit_name
-  //console.log(product_type, 'product_type')
+  const markupUnit = Array.isArray(apiItem.markups) ? apiItem.markups.find((elm: any) => elm.customer_type == 1)?.unit_name : "";
+  const unit_type = markupUnit || apiItem.unit_type || apiItem.product_type || apiItem.unit || apiItem.type || "";
   return {
     id: String(apiItem.id),
     name: apiItem.product_name || apiItem.product_alt_name || "Unknown Product",
     slug: (apiItem.product_name || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + apiItem.id,
     category: apiItem.category_name || catMap[String(apiItem.cat_id)] || "Groceries",
     price: cost,
-    product_type: product_type || apiItem.product_type || apiItem.unit || apiItem.type || "",
+    product_type: unit_type,
+    unit_type: unit_type,
     // originalPrice: cost > 0 ? cost * 1.2 : 0,
     originalPrice: cost,
     image: image,
@@ -476,6 +479,20 @@ export async function checkoutStorefront(checkoutPayload: any) {
 
   return response.json();
 }
+
+export function getCategoryUrl(product?: any): string {
+  if (!product) return "/products";
+  const cat = product.category || product.category_name;
+  if (!cat) return "/products";
+  const slug = String(cat)
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `/products/${slug}`;
+}
+
 
 
 

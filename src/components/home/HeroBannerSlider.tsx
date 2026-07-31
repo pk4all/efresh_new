@@ -18,7 +18,7 @@ const slides = [
     href: "/products",
     image: "/images/hero_fresh_fruits.png",
     bgGradient: "linear-gradient(90deg, rgba(224, 90, 43, 0.95) 0%, rgba(201, 74, 29, 0.85) 45%, rgba(0, 0, 0, 0.25) 100%)",
-    accentColor: "#6BBE59",
+    accentColor: "var(--theme-color2)",
   },
   {
     id: 2,
@@ -32,7 +32,7 @@ const slides = [
     href: "/products?category=Vegetables+%26+Fruit",
     image: "/images/hero_fresh_fruits.png",
     bgGradient: "linear-gradient(90deg, rgba(73, 103, 169, 0.95) 0%, rgba(53, 78, 133, 0.85) 45%, rgba(0, 0, 0, 0.25) 100%)",
-    accentColor: "#6BBE59",
+    accentColor: "var(--theme-color2)",
   },
   {
     id: 3,
@@ -46,7 +46,7 @@ const slides = [
     href: "/products",
     image: "/images/hero_fresh_fruits.png",
     bgGradient: "linear-gradient(90deg, rgba(107, 190, 89, 0.95) 0%, rgba(84, 163, 67, 0.85) 45%, rgba(0, 0, 0, 0.25) 100%)",
-    accentColor: "#4967a9",
+    accentColor: "var(--theme-color2)",
   },
 ];
 
@@ -108,7 +108,7 @@ export default function HeroBannerSlider() {
                 </span>
                 <span
                   className="text-white text-[10px] sm:text-xs px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-sm font-black shadow-sm"
-                  style={{ backgroundColor: slide.accentColor }}
+                  style={{ background: slide.accentColor, color: "#ffffff" }}
                 >
                   {slide.badge}
                 </span>
@@ -121,7 +121,15 @@ export default function HeroBannerSlider() {
                 <br />
                 <span
                   className="font-black drop-shadow-md"
-                  style={{ color: slide.accentColor }}
+                  style={
+                    slide.accentColor.includes("var(") || slide.accentColor.includes("gradient")
+                      ? {
+                          background: slide.accentColor,
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                        }
+                      : { color: slide.accentColor }
+                  }
                 >
                   {slide.headlineAccent}
                 </span>
@@ -135,7 +143,7 @@ export default function HeroBannerSlider() {
                 <Link
                   href={slide.href}
                   className="inline-flex items-center gap-2 text-white font-bold px-5 py-2.5 sm:px-8 sm:py-3.5 text-xs sm:text-sm transition-all shadow-lg hover:shadow-xl cursor-pointer rounded-sm hover:opacity-90 active:scale-95"
-                  style={{ backgroundColor: slide.accentColor }}
+                  style={{ background: slide.accentColor, color: "#ffffff" }}
                 >
                   {slide.cta}
                   <ArrowRight size={14} className="sm:w-4 sm:h-4" />

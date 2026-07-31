@@ -256,7 +256,7 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
                       key={cat.id}
                       onClick={() => handleCategoryClick(cat)}
                       className={`py-3 px-6 flex items-center justify-between transition-all duration-150 cursor-pointer group border-l-4 ${isSelected
-                        ? "bg-gray-100/90 border-[#4967a9] text-gray-900 font-bold"
+                        ? "bg-gray-100/90 border-[var(--theme-color1)] text-gray-900 font-bold"
                         : "border-transparent hover:bg-gray-50 text-gray-800"
                         }`}
                     >
@@ -280,8 +280,8 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
                       <ArrowRight
                         size={16}
                         className={`transition-all flex-shrink-0 ${isSelected
-                          ? "text-[#4967a9] translate-x-0.5"
-                          : "text-gray-400 group-hover:text-[#4967a9] group-hover:translate-x-0.5"
+                          ? "text-[var(--theme-color1)] translate-x-0.5"
+                          : "text-gray-400 group-hover:text-[var(--theme-color1)] group-hover:translate-x-0.5"
                           }`}
                       />
                     </div>
@@ -307,7 +307,7 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
                   <Link
                     href={`/products/${selectedCatName.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`}
                     onClick={onClose}
-                    className="text-xs font-semibold text-[#4967a9] hover:underline flex items-center gap-1"
+                    className="text-xs font-semibold text-[var(--theme-color1)] hover:underline flex items-center gap-1"
                   >
                     <span>View All</span>
                     <ChevronRight size={14} />
@@ -328,7 +328,7 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
               <div className="divide-y divide-gray-100/70">
                 {subLoading ? (
                   <div className="flex items-center justify-center py-16 text-gray-400 gap-2">
-                    <Loader2 size={20} className="animate-spin text-[#4967a9]" />
+                    <Loader2 size={20} className="animate-spin text-[var(--theme-color1)]" />
                     <span className="text-xs font-medium">Loading subcategories...</span>
                   </div>
                 ) : subCategories.length > 0 ? (
@@ -349,12 +349,12 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
                         onClick={onClose}
                         className={`flex items-center justify-between py-3.5 px-6 hover:bg-gray-50 transition-all duration-150 group cursor-pointer "font-bold !text-gray-900 bg-gray-50/50"`}
                       >
-                        <span className="text-sm font-medium group-hover:text-[#4967a9] transition-colors">
+                        <span className="text-sm font-medium group-hover:text-[var(--theme-color1)] transition-colors">
                           {subName}
                         </span>
                         <ChevronRight
                           size={16}
-                          className="text-gray-400 group-hover:text-[#4967a9] group-hover:translate-x-0.5 transition-all"
+                          className="text-gray-400 group-hover:text-[var(--theme-color1)] group-hover:translate-x-0.5 transition-all"
                         />
                       </Link>
                     );
@@ -365,7 +365,8 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
                     <Link
                       href={`/products/${selectedCatName.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`}
                       onClick={onClose}
-                      className="inline-block mt-3 px-4 py-2 bg-[#4967a9] text-white text-xs font-bold transition-all hover:bg-[#3b548b]"
+                      className="inline-block mt-3 px-4 py-2 text-white text-xs font-bold transition-all hover:opacity-90"
+                      style={{ background: "var(--theme-color2)", color: "#ffffff" }}
                     >
                       Browse {selectedCatName} Products
                     </Link>

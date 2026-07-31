@@ -5,7 +5,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from "lucide-react"
 import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
-import { getPublicAssetUrl } from "@/utils/api";
+import { getPublicAssetUrl, getCategoryUrl } from "@/utils/api";
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items);
@@ -83,12 +83,23 @@ export default function CartPage() {
                 {/* Image + name */}
                 <div className="col-span-12 sm:col-span-6 flex items-center gap-3">
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
-                    <Image src={item.product.image} alt={item.product.name} fill className="object-cover" sizes="64px" unoptimized />
+                    <Image
+                      src={item.product.image}
+                      alt={item.product.name}
+                      fill
+                      className="object-cover"
+                      sizes="64px"
+                      unoptimized
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+                      }}
+                    />
                   </div>
                   <div className="min-w-0">
-                    <Link href={`/product/${item.product.slug}`}
-                      className="font-semibold text-sm line-clamp-2 hover:text-primary transition-colors"
-                      style={{ color: "var(--color-dark)" }}>
+                    <Link href={getCategoryUrl(item.product)}
+                      className="font-bold text-sm line-clamp-2 !text-[#0c2646] hover:!text-[var(--theme-color)] transition-colors"
+                      style={{ color: "#0c2646" }}>
                       {item.product.name}
                     </Link>
                     <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{item.product.category}</p>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import CategoryDrawer from "@/components/layout/CategoryDrawer";
@@ -24,6 +25,7 @@ export default function MegaNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   const cartCount = useCartStore((s) => s.getTotalItems());
   const openCart = useCartStore((s) => s.openCart);
@@ -66,7 +68,7 @@ export default function MegaNav() {
             <button
               onClick={() => setCategoryDrawerOpen(true)}
               className="flex items-center gap-2.5 text-white font-bold text-xs sm:text-sm px-4 sm:px-5 py-3 rounded-lg transition-all shadow-md cursor-pointer hover:opacity-95 active:scale-95 whitespace-nowrap shrink-0"
-              style={{ backgroundColor: "#4967a9", color: "#ffffff" }}
+              style={{ background: "var(--theme-color2)", color: "#ffffff" }}
             >
               <MenuCircleIcon className="w-5 h-5 text-white shrink-0" />
               <span className="whitespace-nowrap">All Categories</span>
@@ -76,12 +78,13 @@ export default function MegaNav() {
           {/* Right Aligned Categories & Cart Pill */}
           <div className="flex items-stretch flex-1 justify-end min-w-0">
             {primaryCategories.map((item, idx) => {
-              const Icon = item.icon
+              const Icon = item.icon;
+              const isActive = pathname === item.href || (item.href !== "/products" && pathname.startsWith(item.href));
               return (
                 <Link
                   key={idx}
                   href={item.href}
-                  className="category-nav-item flex flex-col items-center justify-center px-2 sm:px-3 lg:px-4 py-3 text-gray-800 border-l border-dotted border-gray-200 transition-all duration-200 group cursor-pointer min-w-[80px] lg:min-w-[95px] xl:min-w-[115px] self-stretch shrink"
+                  className={`category-nav-item flex flex-col items-center justify-center px-2 sm:px-3 lg:px-4 py-3 border-l border-dotted border-gray-200 transition-all duration-200 group cursor-pointer min-w-[80px] lg:min-w-[95px] xl:min-w-[115px] self-stretch shrink ${isActive ? "active" : "text-gray-800"}`}
                 >
                   <Icon className="w-8 h-8 sm:w-9 sm:h-9 text-gray-700 group-hover:text-white transition-colors mb-1.5" />
                   <span className="text-[11px] sm:text-xs font-semibold text-gray-800 group-hover:text-white whitespace-nowrap">
@@ -96,7 +99,7 @@ export default function MegaNav() {
               {/* <button
                 onClick={() => setMoreOpen(!moreOpen)}
                 className={`category-nav-item flex flex-col items-center justify-center px-3 sm:px-4 py-3 transition-all duration-200 cursor-pointer min-w-[75px] sm:min-w-[95px] self-stretch group ${moreOpen
-                  ? "bg-[#6BBE59] text-white"
+                  ? "text-white"
                   : "text-gray-800"
                   }`}
               >
@@ -134,7 +137,7 @@ export default function MegaNav() {
                 className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200/80 px-3.5 py-2 rounded-full cursor-pointer transition-all shadow-sm"
               >
                 <ShoppingCart size={18} className="text-gray-800" />
-                <span className="bg-[#6BBE59] text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
+                <span className="text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none" style={{ background: "var(--theme-color2)", color: "#ffffff" }}>
                   {mounted ? cartCount : 0}
                 </span>
               </button>

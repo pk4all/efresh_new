@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, Loader2, Plus, Minus, ArrowRight, Tag, ShoppingBag } from "lucide-react";
-import { fetchProducts, mapApiProductToProduct, getPublicAssetUrl } from "@/utils/api";
+import { Search, X, Loader2, Plus, Minus, ArrowRight, Tag, ShoppingBag, ShoppingCart } from "lucide-react";
+import { fetchProducts, mapApiProductToProduct, getPublicAssetUrl, getCategoryUrl } from "@/utils/api";
 import { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
@@ -113,7 +113,7 @@ export default function SearchTypeahead({
   const selectProduct = (product: Product) => {
     setIsOpen(false);
     if (onSearchSubmit) onSearchSubmit();
-    router.push(`/products?q=${encodeURIComponent(product.name)}`);
+    router.push(getCategoryUrl(product));
   };
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
@@ -135,7 +135,7 @@ export default function SearchTypeahead({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Search Input Container */}
       <div
-        className="relative flex items-center border overflow-hidden bg-white shadow-2xs transition-all duration-200 focus-within:shadow-md focus-within:border-[#4967a9]"
+        className="relative flex items-center border overflow-hidden bg-white shadow-2xs transition-all duration-200 focus-within:shadow-md focus-within:border-[var(--theme-color1)]"
         style={{ borderColor: "#e5e7eb" }}
       >
         <input
@@ -169,8 +169,8 @@ export default function SearchTypeahead({
         <button
           type="button"
           onClick={() => navigateToSearch(query)}
-          className="px-5 py-2.5 flex items-center justify-center transition-all text-white hover:bg-[#3b548b] active:scale-95 cursor-pointer"
-          style={{ backgroundColor: "#4967a9" }}
+          className="px-5 py-2.5 flex items-center justify-center transition-all text-white hover:opacity-90 active:scale-95 cursor-pointer"
+          style={{ background: "var(--theme-color2)" }}
           aria-label="Search button"
         >
           <Search size={18} className="stroke-[2.5]" />
@@ -180,9 +180,9 @@ export default function SearchTypeahead({
         {loading && (
           <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-blue-100/70 overflow-hidden z-20">
             <div
-              className="h-full w-1/2 bg-[#4967a9] animate-progress-slide"
+              className="h-full w-1/2 animate-progress-slide"
               style={{
-                backgroundColor: "var(--color-primary, #4967a9)",
+                background: "var(--theme-color2)",
               }}
             />
           </div>
@@ -191,13 +191,13 @@ export default function SearchTypeahead({
 
       {/* Typeahead Suggestions Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white shadow-2xl border border-gray-100 border-b-4 border-b-[#4967a9] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white shadow-2xl border border-gray-100 border-b-4 border-b-[var(--theme-color1)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {suggestions.length > 0 ? (
             <div className="divide-y divide-gray-100">
               {/* Dropdown Header */}
               <div className="px-4 py-2.5 bg-gray-50/80 border-b border-gray-100 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                 <span className="flex items-center gap-1.5 text-gray-500">
-                  <ShoppingBag size={13} className="text-[#4967a9]" /> Suggestions
+                  <ShoppingBag size={13} className="text-[var(--theme-color1)]" /> Suggestions
                 </span>
                 <span className="bg-gray-200/60 text-gray-600 px-2 py-0.5 text-[10px] font-bold">
                   {suggestions.length} products
@@ -217,11 +217,10 @@ export default function SearchTypeahead({
                       key={prod.id || idx}
                       onClick={() => selectProduct(prod)}
                       onMouseEnter={() => setSelectedIndex(idx)}
-                      className={`flex items-center justify-between px-3 py-2 transition-all duration-150 cursor-pointer group ${
-                        isHighlighted
-                          ? "bg-blue-50/80 border-l-3 border-[#4967a9] text-[#4967a9]"
+                      className={`flex items-center justify-between px-3 py-2 transition-all duration-150 cursor-pointer group ${isHighlighted
+                          ? "bg-emerald-50/80 border-l-3 border-[var(--theme-color1)] text-[var(--theme-color1)]"
                           : "hover:bg-gray-50/90 text-gray-800"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Thumbnail */}
@@ -240,7 +239,7 @@ export default function SearchTypeahead({
                         {/* Title & Details */}
                         <div className="min-w-0 flex-1">
                           <h6
-                            className="!text-[0.9rem] font-semibold text-gray-800 tracking-tight leading-snug m-0 group-hover:text-[#4967a9] truncate transition-colors"
+                            className="!text-[0.9rem] font-semibold text-gray-800 tracking-tight leading-snug m-0 group-hover:text-[var(--theme-color1)] truncate transition-colors"
                             style={{ fontSize: "0.9rem" }}
                           >
                             {prod.name}
@@ -264,8 +263,8 @@ export default function SearchTypeahead({
                       {/* Price & Add / Stepper Button */}
                       <div className="flex items-center gap-3 pl-3 flex-shrink-0">
                         <div className="text-right">
-                          <div className="text-sm font-bold text-gray-900 group-hover:text-[#4967a9] transition-colors">
-                            ₹{Number(prod.price).toFixed(2)}
+                          <div className="text-sm font-bold text-gray-900 group-hover:text-[var(--theme-color1)] transition-colors">
+                            ${Number(prod.price).toFixed(2)}
                           </div>
                           {prod.originalPrice > prod.price && (
                             <div className="text-[10px] text-gray-400 line-through">
@@ -311,13 +310,14 @@ export default function SearchTypeahead({
                           <button
                             type="button"
                             onClick={(e) => handleAddToCart(e, prod)}
-                            className="w-8 h-8 bg-gray-100 hover:bg-[#4967a9] text-gray-700 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
+                            className="w-8 h-8 flex items-center justify-center text-white transition-all cursor-pointer shadow-2xs active:scale-95 hover:opacity-90 rounded-sm"
+                            style={{ background: "var(--theme-color2)", color: "#ffffff" }}
                             title="Add to Cart"
                           >
-                            <Plus
+                            <ShoppingCart
                               size={15}
-                              strokeWidth={2.5}
-                              className="text-gray-700 group-hover/btn:text-white transition-colors"
+                              strokeWidth={2.2}
+                              className="text-white"
                             />
                           </button>
                         )}

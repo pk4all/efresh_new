@@ -18,6 +18,7 @@ export interface Product {
   subcategory_name?: string;
   price: number;
   product_type?: string;
+  unit_type?: string;
   package_cost?: string;
   seasonal?: string;
   originalPrice: number;
