@@ -11,7 +11,7 @@ import {
 import { useCartStore } from "@/store/cartStore";
 import { useAgentStore } from "@/store/agentStore";
 import { toast } from "sonner";
-import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sendAgentChatMessage, getPublicAssetUrl } from "@/utils/api";
+import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sendAgentChatMessage, getPublicAssetUrl, getVendorByPincode } from "@/utils/api";
 import { Product } from "@/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -47,8 +47,33 @@ function stripMarkdown(mdText: string): string {
 const VAD_SPEECH_RMS_THRESHOLD = 0.02;
 const VAD_SILENCE_HOLD_MS = 1100;
 const VAD_MAX_RECORDING_MS = 30000; // hard safety cap if silence is never detected
-const BARGE_IN_RMS_THRESHOLD = 0.035; // a bit higher than VAD to resist TTS speaker bleed
-const BARGE_IN_SUSTAIN_FRAMES = 5; // require a few consecutive frames above threshold
+
+// Barge-in is a little more conservative than regular listening: the mic is
+// live at the same time the assistant's own voice is coming out of the
+// speakers, so it's more exposed to speaker bleed than plain listening is.
+// Not too conservative though - these were previously tuned aggressively to
+// fight background noise and ended up blocking genuine interruptions too.
+const BARGE_IN_RMS_THRESHOLD = 0.03;
+
+// Ambient-noise rejection: rather than trusting a single fixed volume
+// threshold (which false-triggers on fans, traffic, AC hum, etc.), sample
+// the room's noise floor for a moment first and only treat audio as real
+// speech once it clearly and continuously rises above that floor. Sustain
+// is tracked in wall-clock time (not animation-frame count) since rAF
+// cadence varies with display refresh rate and throttles hard on
+// backgrounded tabs - a frame count would mean a different real-world
+// duration depending on the device.
+const NOISE_CALIBRATION_MS = 400;
+const VAD_NOISE_MARGIN_MULTIPLIER = 2.5;
+const VAD_NOISE_MARGIN_MIN = 0.012;
+const VAD_SUSTAIN_MS = 150;
+const BARGE_IN_NOISE_MARGIN_MULTIPLIER = 2.2;
+const BARGE_IN_NOISE_MARGIN_MIN = 0.014;
+const BARGE_IN_SUSTAIN_MS = 180;
+
+function computeDynamicThreshold(noiseFloor: number, fallback: number, marginMultiplier: number, marginMin: number): number {
+  return Math.max(noiseFloor * marginMultiplier, noiseFloor + marginMin, fallback);
+}
 
 // Short acknowledgements played while waiting on transcription/chat API calls
 // so the assistant never goes quiet on you - like a real person saying
@@ -62,6 +87,91 @@ const THINKING_FILLER_PHRASES = [
   "One moment, checking that for you now.",
   "Okay, let me dig into that real quick.",
 ];
+
+// Picks a filler line that actually matches what the user asked for, instead
+// of a generic random one - falls back to the generic pool for anything that
+// doesn't match a recognized shopping intent.
+const FILLER_INTENT_PATTERNS: Array<{ pattern: RegExp; phrases: string[] }> = [
+  {
+    pattern: /\badd\b.*\b(cart|basket)\b|\bput\b.*\bcart\b/i,
+    phrases: ["Sure, adding that to your cart now.", "Got it, popping that in your cart.", "On it, adding that for you."],
+  },
+  {
+    pattern: /\bremove\b|\bdelete\b|\btake .* out\b/i,
+    phrases: ["Okay, removing that now.", "Got it, taking that off your cart."],
+  },
+  {
+    pattern: /\bcheckout\b|\bpay\b|\bplace (my|the) order\b/i,
+    phrases: ["Sure, let's get you to checkout.", "Taking you to checkout now."],
+  },
+  {
+    pattern: /\bcart\b/i,
+    phrases: ["Let me pull up your cart.", "One sec, checking your cart."],
+  },
+  {
+    pattern: /\bsearch\b|\bfind\b|\blook(ing)? for\b|\bdo you have\b/i,
+    phrases: ["Let me look that up for you.", "Searching for that now.", "One sec, let me find that."],
+  },
+  {
+    pattern: /\bprice\b|\bcost\b|\bhow much\b|\bavailable\b|\bstock\b/i,
+    phrases: ["Let me check that for you.", "Give me a sec to check on that."],
+  },
+  {
+    pattern: /\border\b|\btrack\b|\bdelivery\b/i,
+    phrases: ["Let me check on that for you.", "One moment, pulling that up."],
+  },
+];
+
+function pickContextualFillerLine(userText: string): string {
+  for (const { pattern, phrases } of FILLER_INTENT_PATTERNS) {
+    if (pattern.test(userText)) {
+      return phrases[Math.floor(Math.random() * phrases.length)];
+    }
+  }
+  return THINKING_FILLER_PHRASES[Math.floor(Math.random() * THINKING_FILLER_PHRASES.length)];
+}
+
+// Greetings and clearly off-topic small talk get answered instantly and
+// locally - no reason to burn a round trip to the shopping backend for
+// "hi" or "tell me a joke". Anything that isn't confidently one of these
+// still goes to the real chat API as before.
+const GREETING_PATTERN =
+  /^(hi|hey|hello|hiya|yo|howdy|good\s*(morning|afternoon|evening))\b|\bhow('?s| is) it going\b|\bhow are you\b|\bwhat'?s up\b/i;
+
+const OFF_TOPIC_PATTERN =
+  /\b(weather|joke|tell me a story|the news|sports? score|who won|movie recommendation|play (a )?song|who is the president|capital of|meaning of life|solve (this|for)|write (me )?(a )?(code|program)|are you (a )?(robot|human|ai)|what'?s your name|how old are you|what time is it)\b/i;
+
+const GROCERY_KEYWORD_PATTERN =
+  /\b(cart|checkout|order|product|item|price|discount|offer|deal|delivery|deliver|shop|store|grocery|groceries|fruit|vegetable|veggie|produce|organic|fresh|milk|bread|meat|chicken|fish|snack|drink|beverage|buy|add|remove|delete|search|find|wishlist|account|address|payment|quantity|stock|available|recipe|recommend|suggest|basket|bill|total|coupon|voucher|return|refund|track)\b/i;
+
+const GREETING_REPLIES = [
+  "Hey there! What can I help you find today?",
+  "Hiya! Ready to help you shop - what are you after?",
+  "Hello! What can I grab for you today?",
+];
+
+const OFF_TOPIC_REPLIES = [
+  "Ha, that's a bit outside my wheelhouse - I'm your grocery shopping buddy! Anything I can help you find today?",
+  "I'm just here for the grocery run, so I can't help with that one - but let me know what you need from the shop!",
+  "That's outside what I can help with - I'm all about groceries. What can I add to your cart?",
+];
+
+// Returns a canned reply for greetings/off-topic small talk, or null if the
+// message should go to the real chat API as normal.
+function getLocalQuickReply(userText: string): string | null {
+  const text = userText.trim();
+  if (!text) return null;
+
+  if (GREETING_PATTERN.test(text)) {
+    return GREETING_REPLIES[Math.floor(Math.random() * GREETING_REPLIES.length)];
+  }
+
+  if (OFF_TOPIC_PATTERN.test(text) && !GROCERY_KEYWORD_PATTERN.test(text)) {
+    return OFF_TOPIC_REPLIES[Math.floor(Math.random() * OFF_TOPIC_REPLIES.length)];
+  }
+
+  return null;
+}
 
 function computeRms(analyser: AnalyserNode, buffer: Uint8Array<ArrayBuffer>): number {
   analyser.getByteTimeDomainData(buffer);
@@ -101,29 +211,57 @@ function createBargeInMonitor(onSpeechDetected: () => void): () => void {
       const data = new Uint8Array(analyser.fftSize);
 
       let rafId = 0;
-      let aboveThresholdFrames = 0;
+      let aboveThresholdSince: number | null = null;
+      let calibrating = true;
+      const calibrationStart = performance.now();
+      const calibrationSamples: number[] = [];
+      let dynamicThreshold = BARGE_IN_RMS_THRESHOLD;
 
       const tick = () => {
         if (cancelled) return;
         const rms = computeRms(analyser, data);
-        if (rms > BARGE_IN_RMS_THRESHOLD) {
-          aboveThresholdFrames++;
-          if (aboveThresholdFrames >= BARGE_IN_SUSTAIN_FRAMES) {
+
+        if (calibrating) {
+          calibrationSamples.push(rms);
+          if (performance.now() - calibrationStart >= NOISE_CALIBRATION_MS) {
+            calibrating = false;
+            const noiseFloor = calibrationSamples.reduce((a, b) => a + b, 0) / calibrationSamples.length;
+            dynamicThreshold = computeDynamicThreshold(
+              noiseFloor,
+              BARGE_IN_RMS_THRESHOLD,
+              BARGE_IN_NOISE_MARGIN_MULTIPLIER,
+              BARGE_IN_NOISE_MARGIN_MIN
+            );
+          }
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+
+        if (rms > dynamicThreshold) {
+          if (aboveThresholdSince === null) aboveThresholdSince = performance.now();
+          if (performance.now() - aboveThresholdSince >= BARGE_IN_SUSTAIN_MS) {
             cancelled = true;
             cleanupFn?.();
             onSpeechDetected();
             return;
           }
         } else {
-          aboveThresholdFrames = 0;
+          aboveThresholdSince = null;
         }
         rafId = requestAnimationFrame(tick);
       };
 
+      let cleanedUp = false;
       cleanupFn = () => {
+        // Guard against double cleanup: onSpeechDetected() below typically
+        // triggers the caller to also invoke the stop() function this module
+        // returned, which would otherwise try to close this AudioContext
+        // twice and throw an unhandled InvalidStateError.
+        if (cleanedUp) return;
+        cleanedUp = true;
         cancelAnimationFrame(rafId);
         stream.getTracks().forEach((t) => t.stop());
-        try { audioCtx.close(); } catch (e) { }
+        try { audioCtx.close().catch(() => { }); } catch (e) { }
       };
 
       rafId = requestAnimationFrame(tick);
@@ -175,7 +313,7 @@ function createPlaybackLevelMonitor(audio: HTMLAudioElement, onLevel: (level: nu
     cancelAnimationFrame(rafId);
     onLevel(0);
     if (audioCtx) {
-      try { audioCtx.close(); } catch (e) { }
+      try { audioCtx.close().catch(() => { }); } catch (e) { }
     }
   };
 }
@@ -196,6 +334,21 @@ function VoiceAssistantSidebarPanel() {
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const vadRafRef = useRef<number | null>(null);
   const vadAudioCtxRef = useRef<AudioContext | null>(null);
+  // Set once the current recording segment has confirmed real speech (past
+  // noise-floor calibration + sustain check) - gates whether we bother
+  // sending the clip to transcription at all.
+  const speechConfirmedRef = useRef(false);
+
+  // When true, the next transcribed turn is treated as the answer to "what's
+  // your pincode?" instead of a normal shopping message. Login is no longer
+  // required to use the agent, but we still need a delivery pincode to be
+  // useful, so it's collected conversationally the first time it's missing.
+  const awaitingPincodeRef = useRef(false);
+  // Counts real shopping-assistance replies given this session while the
+  // user isn't logged in, so we can nudge them toward logging in once
+  // (for better, personalized results) without blocking anonymous use.
+  const anonymousResponseCountRef = useRef(0);
+  const hasNudgedLoginRef = useRef(false);
 
   // Orb visual: fed live by the mic (while listening) and the TTS output
   // (while speaking) so it reacts to actual sound instead of just switching
@@ -233,7 +386,7 @@ function VoiceAssistantSidebarPanel() {
       vadRafRef.current = null;
     }
     if (vadAudioCtxRef.current) {
-      try { vadAudioCtxRef.current.close(); } catch (e) { }
+      try { vadAudioCtxRef.current.close().catch(() => { }); } catch (e) { }
       vadAudioCtxRef.current = null;
     }
   };
@@ -321,9 +474,81 @@ function VoiceAssistantSidebarPanel() {
   // Fires off a short "let me check that for you" line while the transcribe
   // and chat API calls are in flight, so the wait never sounds like dead air.
   // Fire-and-forget: it doesn't drive the conversation loop itself.
-  const playFillerLine = () => {
-    const phrase = THINKING_FILLER_PHRASES[Math.floor(Math.random() * THINKING_FILLER_PHRASES.length)];
+  const playFillerLine = (userText: string) => {
+    const phrase = pickContextualFillerLine(userText);
     playTtsAudio(phrase, () => { }, false);
+  };
+
+  // Shared "what happens after the assistant finishes speaking a turn" logic -
+  // used by both the real chat reply and the local quick-reply shortcut below.
+  const handleAssistantTurnFinished = (result: { bargedIn: boolean; played: boolean; error?: string }) => {
+    if (!result.played) {
+      terminateWithThankYou(result.error || "TTS error");
+      return;
+    }
+    if (result.bargedIn) {
+      shouldTerminateAfterTtsRef.current = false;
+      // The user is already mid-sentence (that's what triggered the barge-in),
+      // so skip the usual noise-floor calibration for this recording.
+      if (isAgentActiveRef.current) startRecording(true);
+      return;
+    }
+    if (shouldTerminateAfterTtsRef.current) {
+      setIsAgentActive(false);
+      isAgentActiveRef.current = false;
+      shouldTerminateAfterTtsRef.current = false;
+    } else if (isAgentActiveRef.current) {
+      startRecording();
+    }
+  };
+
+  // Handles the reply to "what's your delivery pincode?" - pulls the digits
+  // out of whatever was transcribed, looks up delivery for that area the
+  // same way PincodeModal does, and saves it so the rest of the site (and
+  // subsequent agent replies, which read vendor_id fresh each call) picks it
+  // up immediately. Keeps asking again on a bad/unrecognized answer.
+  const handlePincodeAnswer = async (rawText: string) => {
+    const digits = rawText.replace(/\D/g, "");
+
+    if (digits.length < 3 || digits.length > 8) {
+      const askAgainText = "Sorry, I didn't quite catch a pincode there - could you say it again? Just the numbers is perfect.";
+      const msgId = (Date.now() + 1).toString();
+      setMessages(prev => [...prev, { id: msgId, sender: "agent", text: askAgainText }]);
+      await playTtsAudio(askAgainText, handleAssistantTurnFinished);
+      return;
+    }
+
+    try {
+      const res = await getVendorByPincode(digits);
+      const vendorList = Array.isArray(res?.data) ? res.data : res ? [res] : [];
+      const vendorData = vendorList[0] || res;
+      const vendorIdValue = vendorData?.slug || vendorData?.name || vendorData?.id;
+
+      if (!vendorIdValue && vendorList.length === 0) {
+        throw new Error("No delivery available for this pincode");
+      }
+
+      localStorage.setItem("pincode", digits);
+      if (vendorIdValue) {
+        localStorage.setItem("vendor_id", String(vendorIdValue));
+        localStorage.setItem("vendor_data", JSON.stringify(vendorData));
+      }
+      window.dispatchEvent(new Event("pincode-updated"));
+      window.dispatchEvent(new Event("storage"));
+
+      awaitingPincodeRef.current = false;
+
+      const confirmText = `Perfect, I've set your delivery area to ${digits}. What can I help you find today?`;
+      const msgId = (Date.now() + 1).toString();
+      setMessages(prev => [...prev, { id: msgId, sender: "agent", text: confirmText }]);
+      await playTtsAudio(confirmText, handleAssistantTurnFinished);
+    } catch (err: any) {
+      console.error("Pincode lookup failed:", err);
+      const failText = `Hmm, I couldn't find delivery for ${digits} - mind trying a different pincode?`;
+      const msgId = (Date.now() + 1).toString();
+      setMessages(prev => [...prev, { id: msgId, sender: "agent", text: failText }]);
+      await playTtsAudio(failText, handleAssistantTurnFinished);
+    }
   };
 
   const terminateWithThankYou = async (errorMessage?: string) => {
@@ -364,10 +589,15 @@ function VoiceAssistantSidebarPanel() {
 
     const isVoiceQuotaError = errorMessage?.includes("out of credits") || errorMessage?.includes("quota_exceeded");
 
-    let thankYouText = "Ah, sorry about that - something glitched on my end. Give it another shot in a bit!";
+    // Login isn't required to use the agent anymore, so a stale/expired
+    // token should never hard-block the conversation - just drop it and let
+    // the next request go through anonymously.
     if (errorMessage === "Invalid or expired token." || errorMessage?.includes("Invalid or expired token")) {
-      thankYouText = "Looks like you'll need to log in first before we keep chatting - hop back in and I'll be right here!";
-    } else if (isVoiceQuotaError) {
+      localStorage.removeItem("token");
+    }
+
+    let thankYouText = "Ah, sorry about that - something glitched on my end. Give it another shot in a bit!";
+    if (isVoiceQuotaError) {
       thankYouText = "I'm out of voice credits for now, so I can't talk until the quota resets. Please try again later.";
     }
     const agentMsgId = `err_thank_${Date.now()}`;
@@ -454,6 +684,52 @@ function VoiceAssistantSidebarPanel() {
     }
   }, [isAgentActive]);
 
+  // Refresh the agent's session on login: a session created while anonymous
+  // shouldn't keep being reused once the user is authenticated, so drop it
+  // and (if the agent has actually been used) fetch a fresh one tied to the
+  // now-logged-in identity right away instead of waiting for the next
+  // "Start Agent" click.
+  const wasLoggedInRef = useRef(
+    typeof window !== "undefined" && !!localStorage.getItem("token")
+  );
+  useEffect(() => {
+    const handleAuthChange = () => {
+      const isLoggedInNow = typeof window !== "undefined" && !!localStorage.getItem("token");
+      if (isLoggedInNow === wasLoggedInRef.current) return;
+      wasLoggedInRef.current = isLoggedInNow;
+
+      const hadSession = typeof window !== "undefined" && !!localStorage.getItem("agent_session_id");
+      localStorage.removeItem("agent_session_id");
+      setSessionId(null);
+
+      if (isLoggedInNow) {
+        // Logging in unlocks better, personalized help - no need for the
+        // anonymous-usage nudge/counter anymore.
+        anonymousResponseCountRef.current = 0;
+        hasNudgedLoginRef.current = false;
+
+        if (hadSession || isAgentActiveRef.current) {
+          createAgentSession()
+            .then((sessionData) => {
+              const newSessionId =
+                sessionData.session_id || sessionData.id ||
+                (sessionData.data && (sessionData.data.session_id || sessionData.data.id));
+              if (newSessionId) {
+                setSessionId(newSessionId);
+                localStorage.setItem("agent_session_id", newSessionId);
+              }
+            })
+            .catch((err) => {
+              console.error("Failed to refresh agent session after login:", err);
+            });
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleAuthChange);
+    return () => window.removeEventListener("storage", handleAuthChange);
+  }, []);
+
   const executeCommand = async (commandText: string) => {
     if (!commandText.trim()) return;
     const command = commandText.trim().toLowerCase();
@@ -523,7 +799,13 @@ function VoiceAssistantSidebarPanel() {
 
   // Start ne agent.
 
-  async function startRecording() {
+  // assumeSpeaking: true when we already know the user is actively talking
+  // (e.g. they just barged in over the assistant). In that case, running the
+  // normal ambient-noise calibration would sample their live voice as if it
+  // were background noise, inflating the threshold and making the rest of
+  // what they say fail to register as speech - so skip straight to "speech
+  // confirmed" instead of calibrating from scratch mid-sentence.
+  async function startRecording(assumeSpeaking = false) {
     const currentActiveAudio = useAgentStore.getState().activeAudio;
     const currentIsTranscribing = useAgentStore.getState().isTranscribing;
     if (!isAgentActiveRef.current || currentActiveAudio || currentIsTranscribing) return;
@@ -567,21 +849,56 @@ function VoiceAssistantSidebarPanel() {
       source.connect(analyser);
       const vadData = new Uint8Array(analyser.fftSize);
 
-      let speechStarted = false;
+      speechConfirmedRef.current = assumeSpeaking;
+      let speechStarted = assumeSpeaking;
       let silenceStart: number | null = null;
+      let aboveThresholdSince: number | null = null;
+
+      // Calibration phase: sample the room's ambient noise briefly so the
+      // speech threshold adapts to this environment instead of a fixed guess.
+      // Skipped entirely when assumeSpeaking, since there's no quiet moment
+      // to sample - the user is already talking.
+      let calibrating = !assumeSpeaking;
+      const calibrationStart = performance.now();
+      const calibrationSamples: number[] = [];
+      let dynamicThreshold = VAD_SPEECH_RMS_THRESHOLD;
 
       const tick = () => {
         const rms = computeRms(analyser, vadData);
         orbLevelRef.current = rms;
-        if (rms > VAD_SPEECH_RMS_THRESHOLD) {
-          speechStarted = true;
-          silenceStart = null;
-        } else if (speechStarted) {
-          if (silenceStart === null) {
-            silenceStart = performance.now();
-          } else if (performance.now() - silenceStart > VAD_SILENCE_HOLD_MS) {
-            stopRecording();
-            return;
+
+        if (calibrating) {
+          calibrationSamples.push(rms);
+          if (performance.now() - calibrationStart >= NOISE_CALIBRATION_MS) {
+            calibrating = false;
+            const noiseFloor = calibrationSamples.reduce((a, b) => a + b, 0) / calibrationSamples.length;
+            dynamicThreshold = computeDynamicThreshold(
+              noiseFloor,
+              VAD_SPEECH_RMS_THRESHOLD,
+              VAD_NOISE_MARGIN_MULTIPLIER,
+              VAD_NOISE_MARGIN_MIN
+            );
+          }
+          vadRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+
+        if (rms > dynamicThreshold) {
+          if (aboveThresholdSince === null) aboveThresholdSince = performance.now();
+          if (performance.now() - aboveThresholdSince >= VAD_SUSTAIN_MS) {
+            speechStarted = true;
+            speechConfirmedRef.current = true;
+            silenceStart = null;
+          }
+        } else {
+          aboveThresholdSince = null;
+          if (speechStarted) {
+            if (silenceStart === null) {
+              silenceStart = performance.now();
+            } else if (performance.now() - silenceStart > VAD_SILENCE_HOLD_MS) {
+              stopRecording();
+              return;
+            }
           }
         }
         vadRafRef.current = requestAnimationFrame(tick);
@@ -637,6 +954,20 @@ function VoiceAssistantSidebarPanel() {
         return;
       }
 
+      // The mic picked something up, but it never rose clearly above the
+      // calibrated ambient noise floor for long enough to count as real
+      // speech - almost certainly just background noise (fan, traffic, hum).
+      // Discard it instead of sending it to transcription, which can
+      // otherwise hallucinate words out of non-speech audio.
+      if (!speechConfirmedRef.current) {
+        console.warn("No confirmed speech in this segment - discarding without transcribing.");
+        setIsTranscribing(false);
+        if (isAgentActiveRef.current) {
+          startRecording();
+        }
+        return;
+      }
+
       const formData = new FormData();
       formData.append("audio_file", audioBlob, "audio.webm");
 
@@ -659,9 +990,26 @@ function VoiceAssistantSidebarPanel() {
         const userMsgId = Date.now().toString();
         setMessages(prev => [...prev, { id: userMsgId, sender: "user", text }]);
 
-        // Give a quick spoken acknowledgement while the chat API call is in
-        // flight, instead of leaving the wait silent.
-        playFillerLine();
+        // If we just asked for a delivery pincode, this turn is the answer -
+        // handle it locally instead of treating it as a shopping question.
+        if (awaitingPincodeRef.current) {
+          await handlePincodeAnswer(text);
+          return;
+        }
+
+        // Greetings and clearly off-topic small talk get answered instantly,
+        // without spending a round trip on the shopping backend.
+        const quickReply = getLocalQuickReply(text);
+        if (quickReply) {
+          const quickMsgId = (Date.now() + 1).toString();
+          setMessages(prev => [...prev, { id: quickMsgId, sender: "agent", text: quickReply }]);
+          await playTtsAudio(quickReply, handleAssistantTurnFinished);
+          return;
+        }
+
+        // Give a quick, relevant spoken acknowledgement while the chat API
+        // call is in flight, instead of leaving the wait silent.
+        playFillerLine(text);
 
         // Get current sessionId or use stored one
         const activeSessionId = sessionId || localStorage.getItem("agent_session_id");
@@ -734,11 +1082,26 @@ function VoiceAssistantSidebarPanel() {
           if (action == 'checkout' || action === 'Checkout' || action === 'GotoCheckout' || action === 'gotoCheckout') {
             router.push('/checkout');
           }
+          if (action == 'login' || action === 'Login' || action === 'GotoLogin' || action === 'gotoLogin') {
+            router.push('/login');
+          }
         } catch (chatErr: any) {
           clearTimeout(timeoutId);
           console.error("Chat API error:", chatErr);
           await terminateWithThankYou(chatErr.message || "Chat API error");
           return;
+        }
+
+        // Login is no longer required to use the agent, but it does unlock
+        // better, personalized help - so anonymous users get 3 free replies,
+        // then a one-time nudge tacked onto the end of the 3rd reply.
+        const isLoggedIn = typeof window !== "undefined" && !!localStorage.getItem("token");
+        if (!isLoggedIn) {
+          anonymousResponseCountRef.current += 1;
+          if (anonymousResponseCountRef.current >= 3 && !hasNudgedLoginRef.current) {
+            hasNudgedLoginRef.current = true;
+            replyText = `${replyText} By the way, if you log in I can save your cart and give you more personalized help - want to sign in for better results?`;
+          }
         }
 
         // Add agent response to messages list
@@ -747,25 +1110,7 @@ function VoiceAssistantSidebarPanel() {
 
         // Convert response text to voice and play it. Barge-in lets the user
         // start talking over the assistant to cut it off, just like ChatGPT voice.
-        await playTtsAudio(stripMarkdown(replyText), ({ bargedIn, played, error }) => {
-          if (!played) {
-            terminateWithThankYou(error || "TTS error");
-            return;
-          }
-          if (bargedIn) {
-            // User interrupted - drop any pending termination and listen to them now.
-            shouldTerminateAfterTtsRef.current = false;
-            if (isAgentActiveRef.current) startRecording();
-            return;
-          }
-          if (shouldTerminateAfterTtsRef.current) {
-            setIsAgentActive(false);
-            isAgentActiveRef.current = false;
-            shouldTerminateAfterTtsRef.current = false;
-          } else if (isAgentActiveRef.current) {
-            startRecording();
-          }
-        });
+        await playTtsAudio(stripMarkdown(replyText), handleAssistantTurnFinished);
 
         // Also check if text has matching shop commands to trigger navigation or action
         // await executeCommand(text);
@@ -845,6 +1190,9 @@ function VoiceAssistantSidebarPanel() {
     } else {
       setIsAgentActive(true);
       isAgentActiveRef.current = true;
+      // Fresh session, fresh 3-reply anonymous allowance.
+      anonymousResponseCountRef.current = 0;
+      hasNudgedLoginRef.current = false;
       try {
         setIsTranscribing(true);
         let activeSessionId = sessionId || localStorage.getItem("agent_session_id");
@@ -864,22 +1212,40 @@ function VoiceAssistantSidebarPanel() {
           }
         }
 
-        // Add welcome message to visual chat window
-        const welcomeText = "Hey, welcome to eFresh! I'm your shopping buddy - here to help you find great picks, add stuff to your cart, or just get you where you need to go. What are we grabbing today?";
-        setMessages(prev => [...prev, { id: `welcome_${Date.now()}`, sender: "agent", text: welcomeText }]);
-        setIsTranscribing(false);
+        // No login required to use the agent - but we do need a delivery
+        // pincode to be useful, so ask for it conversationally the first
+        // time it's missing (mirrors what PincodeModal does elsewhere).
+        const hasPincode = typeof window !== "undefined" && !!localStorage.getItem("pincode");
+        awaitingPincodeRef.current = !hasPincode;
 
-        // Convert welcome message to voice and play it, then start listening.
-        // You can talk over it at any point - it'll stop and listen to you.
-        await playTtsAudio(welcomeText, ({ played, error }) => {
-          if (!played) {
-            terminateWithThankYou(error || "Welcome TTS error");
-            return;
-          }
-          if (isAgentActiveRef.current) {
-            startRecording();
-          }
-        });
+        const hasPriorChat = messages.length > 0;
+
+        if (hasPincode && hasPriorChat) {
+          // Already talked before and we know where to deliver - skip the
+          // welcome spiel and jump straight back into listening.
+          setIsTranscribing(false);
+          startRecording();
+        } else {
+          const welcomeText = hasPincode
+            ? "Hey, welcome to eFresh! I'm your shopping buddy - here to help you find great picks, add stuff to your cart, or just get you where you need to go. What are we grabbing today?"
+            : "Hey, welcome to eFresh! I'm your shopping buddy. First up, what's your delivery pincode or postcode, so I can find stores near you?";
+
+          // Add welcome message to visual chat window
+          setMessages(prev => [...prev, { id: `welcome_${Date.now()}`, sender: "agent", text: welcomeText }]);
+          setIsTranscribing(false);
+
+          // Convert welcome message to voice and play it, then start listening.
+          // You can talk over it at any point - it'll stop and listen to you.
+          await playTtsAudio(welcomeText, ({ played, error }) => {
+            if (!played) {
+              terminateWithThankYou(error || "Welcome TTS error");
+              return;
+            }
+            if (isAgentActiveRef.current) {
+              startRecording();
+            }
+          });
+        }
       } catch (err) {
         console.error("Failed to start recording:", err);
         toast.error("Failed to access microphone. Please check permissions.");

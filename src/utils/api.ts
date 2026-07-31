@@ -318,7 +318,7 @@ export async function createAgentSession() {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
       vendor_id: vendorId(),
@@ -345,7 +345,7 @@ export async function sendAgentChatMessage(sessionId: string, message: string, s
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
       session_id: sessionId,

@@ -33,6 +33,12 @@ interface CartStore {
   getDiscount: () => number;
 }
 
+// Several independent triggers can ask for a cart sync around the same time
+// (Header's auth check, every addItem/removeItem/updateQuantity call, the
+// voice agent's per-turn action handler) - without this, each one fires its
+// own /cart request instead of sharing the one already in flight.
+let cartSyncInFlight: Promise<void> | null = null;
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -46,32 +52,40 @@ export const useCartStore = create<CartStore>()(
         const headers = getAuthHeaders();
         if (!headers) return;
 
-        try {
-          const cleanBase = getBaseUrl();
-          const res = await fetch(`${cleanBase}/cart`, { headers });
-          if (res.ok) {
-            const body = await res.json();
-            const cartOut = body.data || body;
-            const mappedItems = (cartOut.items || []).map((item: any) => ({
-              product: {
-                id: String(item.product_id),
-                name: item.product_name || "Unknown Product",
-                price: parseFloat(item.product_price) || 0,
-                originalPrice: parseFloat(item.product_price) || 0,
-                image: item.product_image || "/images/placeholder.jpg",
-                category: "",
-                rating: 5,
-                reviews: 0,
-                unit: item.unit_name || "1 unit",
-                stock: 99,
-              },
-              quantity: item.qty || 1,
-            }));
-            set({ items: mappedItems });
+        if (cartSyncInFlight) return cartSyncInFlight;
+
+        cartSyncInFlight = (async () => {
+          try {
+            const cleanBase = getBaseUrl();
+            const res = await fetch(`${cleanBase}/cart`, { headers });
+            if (res.ok) {
+              const body = await res.json();
+              const cartOut = body.data || body;
+              const mappedItems = (cartOut.items || []).map((item: any) => ({
+                product: {
+                  id: String(item.product_id),
+                  name: item.product_name || "Unknown Product",
+                  price: parseFloat(item.product_price) || 0,
+                  originalPrice: parseFloat(item.product_price) || 0,
+                  image: item.product_image || "/images/placeholder.jpg",
+                  category: "",
+                  rating: 5,
+                  reviews: 0,
+                  unit: item.unit_name || "1 unit",
+                  stock: 99,
+                },
+                quantity: item.qty || 1,
+              }));
+              set({ items: mappedItems });
+            }
+          } catch (err) {
+            console.error("Failed to sync cart with db:", err);
+          } finally {
+            cartSyncInFlight = null;
           }
-        } catch (err) {
-          console.error("Failed to sync cart with db:", err);
-        }
+        })();
+
+        return cartSyncInFlight;
       },
 
       addItem: (product, quantity = 1) => {

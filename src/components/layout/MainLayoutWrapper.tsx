@@ -25,20 +25,41 @@ export default function MainLayoutWrapper({ children }: MainLayoutWrapperProps) 
       if (!(window as any).__fetch_intercepted__) {
         (window as any).__fetch_intercepted__ = true;
         const originalFetch = window.fetch;
+        let sessionExpiredHandledAt = 0;
         window.fetch = async (...args) => {
           const response = await originalFetch(...args);
-          const clone = response.clone();
-          try {
-            const body = await clone.json();
-            if (body && (body.detail === "Invalid or expired token." || body.detail === "Not authenticated" || (typeof body.detail === "string" && (body.detail.toLowerCase().includes("token") || body.detail.toLowerCase().includes("not authenticated"))))) {
-              localStorage.removeItem("token");
-              localStorage.removeItem("customer_id");
-              localStorage.removeItem("name");
-              window.dispatchEvent(new CustomEvent("open-login-modal"));
-              toast.error("Session expired. Please log in again.");
+
+          // Only successful/error status matters here - inspecting 200 OK
+          // bodies too meant any endpoint's *successful* response (e.g. the
+          // cart) that happened to mention "token" anywhere would get
+          // misread as a session expiry, wiping a token that had just been
+          // set (right after a fresh login) and re-popping the login modal.
+          if (!response.ok) {
+            const clone = response.clone();
+            try {
+              const body = await clone.json();
+              const detail = body?.detail;
+              const looksLikeAuthError =
+                detail === "Invalid or expired token." ||
+                detail === "Not authenticated" ||
+                (typeof detail === "string" &&
+                  (detail.toLowerCase().includes("token") || detail.toLowerCase().includes("not authenticated")));
+
+              // Debounce: several requests can fail with the same auth error
+              // in a burst (e.g. cart + agent session firing close together)
+              // - only actually act on it once per short window instead of
+              // stacking up repeated token wipes / modals / toasts.
+              if (looksLikeAuthError && Date.now() - sessionExpiredHandledAt > 3000) {
+                sessionExpiredHandledAt = Date.now();
+                localStorage.removeItem("token");
+                localStorage.removeItem("customer_id");
+                localStorage.removeItem("name");
+                window.dispatchEvent(new CustomEvent("open-login-modal"));
+                toast.error("Session expired. Please log in again.");
+              }
+            } catch (e) {
+              // Not JSON
             }
-          } catch (e) {
-            // Not JSON
           }
           return response;
         };
