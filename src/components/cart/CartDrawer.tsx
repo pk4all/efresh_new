@@ -85,27 +85,27 @@ export default function CartDrawer() {
               </Link>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="divide-y divide-gray-100">
               {items.map((item) => (
                 <div
                   key={item.product.id}
-                  className="flex items-center gap-3 p-3 rounded-md bg-white border border-gray-200/90 shadow-2xs hover:shadow-xs transition-all duration-200"
+                  className="flex items-center gap-2.5 py-2.5 px-1 bg-white hover:bg-gray-50/50 transition-colors"
                 >
-                  <div className="relative w-13 h-13 rounded-xs overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
+                  <div className="relative w-11 h-11 rounded-xs overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
                     <Image
                       src={item.product.image}
                       alt={item.product.name}
                       fill
                       unoptimized
-                      className="object-cover"
-                      sizes="52px"
+                      className="object-contain p-1"
+                      sizes="44px"
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
                       }}
                     />
                   </div>
-                  <div className="flex-1 flex flex-col justify-between min-w-0 h-full py-0.5">
+                  <div className="flex-1 flex flex-col justify-between min-w-0 h-full py-0">
                     <div className="flex items-start justify-between gap-1.5">
                       <Link
                         href={getCategoryUrl(item.product)}
@@ -120,10 +120,10 @@ export default function CartDrawer() {
                         className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
                         title="Remove item"
                       >
-                        <Trash2 size={15} className="stroke-[1.75]" />
+                        <Trash2 size={14} className="stroke-[1.75]" />
                       </button>
                     </div>
-                    <div className="flex items-center justify-between gap-1.5 mt-1.5">
+                    <div className="flex items-center justify-between gap-1.5 mt-1">
                       <span className="text-xs font-bold text-[#0da487] flex items-baseline gap-0.5">
                         ${(item.product.price * item.quantity).toFixed(2)}
                         {(item.product.unit_type || item.product.product_type) && (
@@ -132,14 +132,14 @@ export default function CartDrawer() {
                           </span>
                         )}
                       </span>
-                      <div className="flex items-center border border-gray-300 rounded-xs bg-white px-2 py-0.5 text-xs shadow-2xs">
+                      <div className="flex items-center border border-gray-200 rounded-xs bg-white px-1.5 py-0.5 text-xs">
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                           className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
                         >
                           –
                         </button>
-                        <span className="font-bold text-[#0c2646] px-2 min-w-[16px] text-center select-none">{item.quantity}</span>
+                        <span className="font-bold text-[#0c2646] px-1.5 min-w-[14px] text-center select-none text-xs">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                           className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"

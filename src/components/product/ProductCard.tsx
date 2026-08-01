@@ -140,8 +140,8 @@ export default function ProductCard({ product }: Props) {
           </p> */}
           <Link
             href={getCategoryUrl(product)}
-            className="text-xs sm:text-sm font-semibold line-clamp-2 mb-1 hover:text-primary transition-colors"
-            style={{ color: "var(--color-dark)" }}
+            className="text-[0.7rem] sm:text-[0.7rem] font-semibold line-clamp-2 mb-1 hover:text-primary transition-colors"
+            style={{ color: "var(--color-dark)", fontSize: "0.7rem", lineHeight: "1.25" }}
           >
             {product.name}
           </Link>
