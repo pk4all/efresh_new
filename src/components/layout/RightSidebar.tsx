@@ -508,6 +508,12 @@ function VoiceAssistantSidebarPanel() {
   // subsequent agent replies, which read vendor_id fresh each call) picks it
   // up immediately. Keeps asking again on a bad/unrecognized answer.
   const handlePincodeAnswer = async (rawText: string) => {
+    // Processing for this turn is done - clear this now (not just in
+    // stopRecording's outer finally) so the mic isn't still gated as "busy"
+    // by the time playTtsAudio's onFinished tries to start the next
+    // recording once this reply is spoken.
+    setIsTranscribing(false);
+
     const digits = rawText.replace(/\D/g, "");
 
     if (digits.length < 3 || digits.length > 8) {
@@ -1001,6 +1007,10 @@ function VoiceAssistantSidebarPanel() {
         // without spending a round trip on the shopping backend.
         const quickReply = getLocalQuickReply(text);
         if (quickReply) {
+          // Done processing this turn - clear before playTtsAudio's
+          // onFinished tries to start the next recording (see note in
+          // handlePincodeAnswer).
+          setIsTranscribing(false);
           const quickMsgId = (Date.now() + 1).toString();
           setMessages(prev => [...prev, { id: quickMsgId, sender: "agent", text: quickReply }]);
           await playTtsAudio(quickReply, handleAssistantTurnFinished);
@@ -1091,6 +1101,13 @@ function VoiceAssistantSidebarPanel() {
           await terminateWithThankYou(chatErr.message || "Chat API error");
           return;
         }
+
+        // The chat API call is fully done now - only now is it safe to clear
+        // this. Leaving it set until here (not just in the outer finally)
+        // keeps the mic gated off for the entire time the chat request is in
+        // flight, and also avoids a race where playTtsAudio's onFinished
+        // tries to start the next recording before this flag is reset.
+        setIsTranscribing(false);
 
         // Login is no longer required to use the agent, but it does unlock
         // better, personalized help - so anonymous users get 3 free replies,
