@@ -14,7 +14,7 @@ export default function FeaturedProductsSection() {
     async function loadProducts() {
       try {
         setLoading(true);
-        const res = await fetchProducts({ limit: 12, vendor_id: "vendor_test6" });
+        const res = await fetchProducts({ limit: 12 });
         const items = res?.data || [];
         setProducts(items.map(mapApiProductToProduct));
       } catch (err) {
@@ -24,6 +24,16 @@ export default function FeaturedProductsSection() {
       }
     }
     loadProducts();
+
+    const handleVendorChange = () => {
+      loadProducts();
+    };
+    window.addEventListener("pincode-updated", handleVendorChange);
+    window.addEventListener("vendor-changed", handleVendorChange);
+    return () => {
+      window.removeEventListener("pincode-updated", handleVendorChange);
+      window.removeEventListener("vendor-changed", handleVendorChange);
+    };
   }, []);
 
   return (

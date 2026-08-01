@@ -29,7 +29,6 @@ export default function BestSellersSection() {
           category_id: catId,
           limit: 12,
           offset: activeTab === "All" ? 24 : 0,
-          vendor_id: "vendor_test6",
         });
         const items = res?.data || [];
         setProducts(items.map(mapApiProductToProduct));
@@ -40,6 +39,16 @@ export default function BestSellersSection() {
       }
     }
     loadProducts();
+
+    const handleVendorChange = () => {
+      loadProducts();
+    };
+    window.addEventListener("pincode-updated", handleVendorChange);
+    window.addEventListener("vendor-changed", handleVendorChange);
+    return () => {
+      window.removeEventListener("pincode-updated", handleVendorChange);
+      window.removeEventListener("vendor-changed", handleVendorChange);
+    };
   }, [activeTab]);
 
   return (

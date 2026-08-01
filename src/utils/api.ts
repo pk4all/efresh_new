@@ -52,9 +52,7 @@ export async function fetchCategories(params: GetCategoriesParams = {}) {
   queryParams.append("limit", String(params.limit ?? 50));
   queryParams.append("offset", String(params.offset ?? 0));
 
-  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test6"
-    ? params.vendor_id
-    : getStoredVendorId();
+  const activeVendor = params.vendor_id || getStoredVendorId();
   queryParams.append("vendor_id", activeVendor);
 
   const url = `${cleanBase}/categories?${queryParams.toString()}`;
@@ -75,9 +73,7 @@ export async function fetchSubCategories(params: GetSubCategoriesParams = {}) {
   queryParams.append("limit", String(params.limit ?? 50));
   queryParams.append("offset", String(params.offset ?? 0));
 
-  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test6"
-    ? params.vendor_id
-    : getStoredVendorId();
+  const activeVendor = params.vendor_id || getStoredVendorId();
   queryParams.append("vendor_id", activeVendor);
 
   if (params.category_id) {
@@ -117,9 +113,7 @@ export async function fetchProducts(params: GetProductsParams = {}) {
     queryParams.append("offset", String(params.offset ?? 0));
   }
 
-  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test6"
-    ? params.vendor_id
-    : getStoredVendorId();
+  const activeVendor = params.vendor_id || getStoredVendorId();
   queryParams.append("vendor_id", activeVendor);
 
   if (params.category_id) {
@@ -153,9 +147,7 @@ export async function fetchProductsFromAgent(params: GetProductsParams = {}) {
     queryParams.append("offset", String(params.offset ?? 0));
   }
 
-  const activeVendor = params.vendor_id && params.vendor_id !== "vendor_test6"
-    ? params.vendor_id
-    : getStoredVendorId();
+  const activeVendor = params.vendor_id || getStoredVendorId();
   queryParams.append("vendor_id", activeVendor);
 
   if (params.category_id) {

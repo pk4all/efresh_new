@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Drawer } from "rsuite";
-import { Truck, Package, ShoppingBag, ChevronDown, X, Loader2, MapPin, CheckCircle2, Store } from "lucide-react";
+import { Truck, Package, ShoppingBag, ChevronDown, X, Loader2, MapPin, CheckCircle2, Store, AlertTriangle } from "lucide-react";
 import { getVendorByPincode } from "@/utils/api";
+import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
 import "rsuite/dist/rsuite-no-reset.min.css";
 
@@ -20,6 +21,16 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
   const [shopType, setShopType] = useState<"express" | "collect">("express");
   const [selectedStore, setSelectedStore] = useState("");
   const [stores, setStores] = useState<any[]>([]);
+
+  // Vendor change confirmation state
+  const [showCartWarningModal, setShowCartWarningModal] = useState(false);
+  const [hasConfirmedVendorChange, setHasConfirmedVendorChange] = useState(false);
+  const [pendingVendorData, setPendingVendorData] = useState<{
+    pincode: string;
+    vendorId: string;
+    vendorData?: any;
+    shopType?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -52,6 +63,9 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
 
   const handleClose = () => {
     setIsOpen(false);
+    setShowCartWarningModal(false);
+    setPendingVendorData(null);
+    setHasConfirmedVendorChange(false);
     if (onClose) onClose();
   };
 
@@ -74,13 +88,21 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
       if (vendorId || vendorList.length > 0) {
         setStores(vendorList);
         setSelectedStore(String(vendorId));
-        localStorage.setItem("pincode", pincode.trim());
-        localStorage.setItem("vendor_id", String(vendorId));
-        localStorage.setItem("vendor_data", JSON.stringify(vendorData));
 
-        toast.success(`Postcode set to ${pincode.trim()}`);
-        window.dispatchEvent(new Event("pincode-updated"));
-        window.dispatchEvent(new Event("storage"));
+        const newVendorId = String(vendorId);
+        const currentVendorId = localStorage.getItem("vendor_id") || "";
+        const cartItems = useCartStore.getState().items;
+        const isChanging = currentVendorId && newVendorId !== currentVendorId;
+
+        if (cartItems.length > 0 && isChanging && !hasConfirmedVendorChange) {
+          setPendingVendorData({
+            pincode: pincode.trim(),
+            vendorId: newVendorId,
+            vendorData,
+            shopType,
+          });
+          setShowCartWarningModal(true);
+        }
       } else {
         setError("We don't deliver to this area yet. Please try another postcode.");
       }
@@ -98,16 +120,59 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
       return;
     }
 
+    const targetVendorId = selectedStore || pendingVendorData?.vendorId || "vendor_test6";
+    const currentVendorId = localStorage.getItem("vendor_id") || "";
+    const cartItems = useCartStore.getState().items;
+    const isChanging = currentVendorId && targetVendorId !== currentVendorId;
+
+    if (cartItems.length > 0 && isChanging && !hasConfirmedVendorChange) {
+      setPendingVendorData({
+        pincode: pincode.trim(),
+        vendorId: targetVendorId,
+        shopType,
+      });
+      setShowCartWarningModal(true);
+      return;
+    }
+
+    // Save location and vendor preferences
     localStorage.setItem("pincode", pincode.trim());
-    if (selectedStore) {
-      localStorage.setItem("vendor_id", selectedStore);
+    localStorage.setItem("vendor_id", targetVendorId);
+    if (pendingVendorData?.vendorData) {
+      localStorage.setItem("vendor_data", JSON.stringify(pendingVendorData.vendorData));
     }
     localStorage.setItem("shop_type", shopType);
 
-    toast.success("Location & fulfillment preferences saved!");
+    // Clear cart if vendor was changed & user accepted
+    if (cartItems.length > 0 && (isChanging || hasConfirmedVendorChange)) {
+      useCartStore.getState().clearCart();
+      toast.info("Vendor updated. Your cart items have been cleared.");
+    } else {
+      toast.success("Location & fulfillment preferences saved!");
+    }
+
+    // Trigger product list re-fetch according to chosen vendor
     window.dispatchEvent(new Event("pincode-updated"));
+    window.dispatchEvent(new Event("vendor-changed"));
     window.dispatchEvent(new Event("storage"));
+
     handleClose();
+  };
+
+  const handleRejectVendorChange = () => {
+    // Revert pincode to currently stored value and close location drawer
+    const storedPincode = localStorage.getItem("pincode") || "";
+    setPincode(storedPincode);
+    setShowCartWarningModal(false);
+    setPendingVendorData(null);
+    setHasConfirmedVendorChange(false);
+    handleClose();
+  };
+
+  const handleAcceptVendorChange = () => {
+    // Accept vendor change: close warning popup but keep location drawer open for vendor selection
+    setHasConfirmedVendorChange(true);
+    setShowCartWarningModal(false);
   };
 
   const isDismissible = !forceOpen && typeof window !== "undefined" && !!localStorage.getItem("pincode");
@@ -115,15 +180,15 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
   return (
     <Drawer
       open={isOpen}
-      onClose={isDismissible ? handleClose : () => { }}
+      onClose={isDismissible && !showCartWarningModal ? handleClose : () => { }}
       placement="right"
       size="xs"
-      backdrop={isDismissible ? true : "static"}
-      keyboard={isDismissible}
+      backdrop={isDismissible && !showCartWarningModal ? true : "static"}
+      keyboard={isDismissible && !showCartWarningModal}
       closeButton={false}
       className="pincode-drawer"
     >
-      <Drawer.Body className="p-0 bg-white flex flex-col justify-between h-full font-sans select-none overflow-y-auto custom-scrollbar">
+      <Drawer.Body className="p-0 bg-white flex flex-col justify-between h-full font-sans select-none overflow-y-auto custom-scrollbar relative">
         <div className="p-5 space-y-5">
 
           {/* Elegant Top Header Bar */}
@@ -312,6 +377,55 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
           </div>
 
         </div>
+
+        {/* Custom Vendor Change Confirmation Modal (Inside Drawer Portal for 100% Clickability) */}
+        {showCartWarningModal && (
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+            style={{ zIndex: 200000, pointerEvents: "auto" }}
+          >
+            <div
+              className="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl border border-gray-100 flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in-95 duration-200"
+              style={{ zIndex: 200001, pointerEvents: "auto" }}
+            >
+              <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mb-1">
+                <AlertTriangle size={32} />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-gray-900 mb-1">Vendor Change Alert</h3>
+                <p className="text-sm font-medium text-gray-600 leading-relaxed">
+                  You have changed your vendor, you have lost your cart items.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 w-full pt-2" style={{ pointerEvents: "auto" }}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRejectVendorChange();
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-gray-300 font-bold text-gray-700 bg-white hover:bg-gray-100 transition-colors cursor-pointer text-sm shadow-2xs"
+                  style={{ pointerEvents: "auto" }}
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAcceptVendorChange();
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer text-sm shadow-md"
+                  style={{ pointerEvents: "auto" }}
+                >
+                  Accept
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Drawer.Body>
     </Drawer>
   );

@@ -13,7 +13,7 @@ export default function TodayDealsSection() {
       try {
         setLoading(true);
         // Category 2 is Vegetables
-        const res = await fetchProducts({ category_id: "2", limit: 12, vendor_id: "vendor_test6" });
+        const res = await fetchProducts({ category_id: "2", limit: 12 });
         const items = res?.data || [];
         setProducts(items.map(mapApiProductToProduct));
       } catch (err) {
@@ -23,6 +23,16 @@ export default function TodayDealsSection() {
       }
     }
     loadProducts();
+
+    const handleVendorChange = () => {
+      loadProducts();
+    };
+    window.addEventListener("pincode-updated", handleVendorChange);
+    window.addEventListener("vendor-changed", handleVendorChange);
+    return () => {
+      window.removeEventListener("pincode-updated", handleVendorChange);
+      window.removeEventListener("vendor-changed", handleVendorChange);
+    };
   }, []);
 
   return (

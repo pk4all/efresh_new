@@ -66,11 +66,26 @@ function ShopContent() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
 
+  const [vendorVersion, setVendorVersion] = useState(0);
+
+  useEffect(() => {
+    const handleVendorChange = () => {
+      setPage(1);
+      setVendorVersion((v) => v + 1);
+    };
+    window.addEventListener("pincode-updated", handleVendorChange);
+    window.addEventListener("vendor-changed", handleVendorChange);
+    return () => {
+      window.removeEventListener("pincode-updated", handleVendorChange);
+      window.removeEventListener("vendor-changed", handleVendorChange);
+    };
+  }, []);
+
   useEffect(() => {
     async function loadCategories() {
       try {
         setLoading(true);
-        const res = await fetchCategories({ limit: 200, offset: 0, vendor_id: "vendor_test6" });
+        const res = await fetchCategories({ limit: 200, offset: 0 });
         setCategories(res?.data || []);
       } catch (err) {
         console.error("Failed to load categories on shop page:", err);
@@ -79,7 +94,7 @@ function ShopContent() {
       }
     }
     loadCategories();
-  }, []);
+  }, [vendorVersion]);
 
   // Resolve category and subcategory from URL slug or searchParams
   useEffect(() => {
@@ -199,7 +214,6 @@ function ShopContent() {
           category_id: catId,
           subcategory_id: subId,
           search: searchQuery || undefined,
-          vendor_id: "vendor_test6",
         });
 
         const items = res?.data || [];
@@ -224,7 +238,7 @@ function ShopContent() {
     if (categories.length > 0 || !loading) {
       loadProducts();
     }
-  }, [page, selectedCategories, activeSubcategory, searchQuery, categories, loading, categorySlug, initialCategory]);
+  }, [page, selectedCategories, activeSubcategory, searchQuery, categories, loading, categorySlug, initialCategory, vendorVersion]);
 
   const filtered = useMemo(() => {
     let result = [...products];

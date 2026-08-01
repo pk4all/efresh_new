@@ -124,10 +124,10 @@ export default function HeroBannerSlider() {
                   style={
                     slide.accentColor.includes("var(") || slide.accentColor.includes("gradient")
                       ? {
-                          background: slide.accentColor,
-                          WebkitBackgroundClip: "text",
-                          WebkitTextFillColor: "transparent",
-                        }
+                        background: slide.accentColor,
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }
                       : { color: slide.accentColor }
                   }
                 >

@@ -143,9 +143,27 @@ export default function CategoryDrawer({ isOpen, onClose }: CategoryDrawerProps)
       setCategories(items);
       setLoading(false);
     }
+
+    const handleVendorChange = () => {
+      categoriesCache = null;
+      categoriesFetchPromise = null;
+      setLoading(true);
+      getCachedCategories().then((items) => {
+        setCategories(items);
+        setLoading(false);
+      });
+    };
+    window.addEventListener("pincode-updated", handleVendorChange);
+    window.addEventListener("vendor-changed", handleVendorChange);
+    
     if (isOpen) {
       loadData();
     }
+
+    return () => {
+      window.removeEventListener("pincode-updated", handleVendorChange);
+      window.removeEventListener("vendor-changed", handleVendorChange);
+    };
   }, [isOpen]);
 
   // Handle Category Click to expand drawer & fetch/retrieve cached subcategories
