@@ -59,18 +59,18 @@ export default function ProductCard({ product }: Props) {
   return (
     <>
       <div
-        className="card group relative flex flex-col transition-all duration-300 hover:-translate-y-1"
+        className="card group relative flex flex-col border border-gray-200"
         style={{ boxShadow: "var(--shadow-card)" }}
       >
         {/* Image */}
         <Link href={getCategoryUrl(product)} className="relative block overflow-hidden">
-          <div className="relative w-full aspect-square bg-gray-50">
+          <div className="relative w-full aspect-square bg-gray-50/60 max-h-[140px] sm:max-h-[180px]">
             <Image
               src={product.image}
               alt={product.name}
               fill
               unoptimized
-              className="object-contain p-3.5 sm:p-4.5 transition-transform duration-500 group-hover:scale-105"
+              className="object-contain p-2.5 sm:p-4"
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
@@ -158,7 +158,7 @@ export default function ProductCard({ product }: Props) {
             {/* Price Column */}
             <div className="flex flex-col min-w-0">
               <div className="flex items-baseline gap-1 flex-wrap">
-                <span className="font-bold text-sm sm:text-base" style={{ color: "var(--color-primary)" }}>
+                <span className="font-bold text-sm xs:text-base" style={{ color: "var(--color-primary)" }}>
                   ${product.price.toFixed(2)}
                   {product.product_type && (
                     <span className="text-[10px] sm:text-xs font-semibold text-gray-500 ml-0.5">

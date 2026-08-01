@@ -86,6 +86,57 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
   }
+
+  /* Categories Sidebar Custom Scrollbar */
+  .category-sidebar-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #f1f5f9;
+  }
+
+  .category-sidebar-scrollbar::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+    display: block !important;
+  }
+
+  .category-sidebar-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+    border-radius: 4px !important;
+  }
+
+  .category-sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: #64748b !important;
+    border-radius: 4px !important;
+  }
+
+  .category-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #475569 !important;
+  }
+
+  /* Subcategories Tag Bar Horizontal Scrollbar */
+  .subcategories-horizontal-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #e2e8f0;
+  }
+
+  .subcategories-horizontal-scrollbar::-webkit-scrollbar {
+    height: 6px !important;
+    display: block !important;
+  }
+
+  .subcategories-horizontal-scrollbar::-webkit-scrollbar-track {
+    background: #e2e8f0 !important;
+    border-radius: 9999px !important;
+  }
+
+  .subcategories-horizontal-scrollbar::-webkit-scrollbar-thumb {
+    background: #64748b !important;
+    border-radius: 9999px !important;
+  }
+
+  .subcategories-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #334155 !important;
+  }
 }
 
 @layer utilities {
@@ -198,6 +249,7 @@
   .card {
     background: white;
     border-radius: 0 !important;
+    border: 1px solid #e5e7eb !important;
     box-shadow: var(--shadow-card);
     overflow: hidden;
   }

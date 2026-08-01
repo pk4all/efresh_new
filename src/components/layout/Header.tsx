@@ -139,22 +139,6 @@ export default function Header() {
 
           {/* Right icons & Mobile Menu toggle */}
           <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-            {/* Phone (24/7 Delivery) */}
-            <a
-              href="tel:+918881042340"
-              className="flex items-center gap-2 text-gray-700 hover:text-[var(--theme-color1)] transition-colors p-1 hidden lg:flex"
-            >
-              <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
-                <Phone size={18} className="stroke-[2] text-[var(--theme-color1)]" />
-              </div>
-              <div className="flex flex-col items-start leading-none text-left">
-                <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">24/7 Delivery</span>
-                <span className="text-xs font-bold text-[#222] mt-1">+91 888 104 2340</span>
-              </div>
-            </a>
-
-            <span className="h-5 w-px bg-gray-200 hidden lg:block" />
-
             {/* Desktop User Account */}
             <div className="relative hidden sm:block" ref={userRef}>
               <button

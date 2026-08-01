@@ -63,8 +63,8 @@ export default function MegaNav() {
       <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm select-none hidden md:block">
         <div className="max-w-7xl mx-auto px-4 flex items-stretch justify-between min-h-[72px]">
 
-          {/* Left Side: "All Categories" Button */}
-          <div className="flex items-center py-2 pr-3 sm:pr-4 shrink-0">
+          {/* Left Side: "All Categories" Button (Hidden per user request) */}
+          <div className="hidden items-center py-2 pr-3 sm:pr-4 shrink-0" style={{ display: "none" }}>
             <button
               onClick={() => setCategoryDrawerOpen(true)}
               className="flex items-center gap-2.5 text-white font-bold text-xs sm:text-sm px-4 sm:px-5 py-3 rounded-lg transition-all shadow-md cursor-pointer hover:opacity-95 active:scale-95 whitespace-nowrap shrink-0"

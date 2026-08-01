@@ -32,35 +32,35 @@ export default function QuickViewModal({ product, onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto relative"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-auto relative"
         style={{ animation: "scaleIn 0.2s ease" }}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors cursor-pointer"
         >
           <X size={16} />
         </button>
 
         <div className="grid grid-cols-1 sm:grid-cols-2">
           {/* Image */}
-          <div className="relative aspect-square bg-gray-50 rounded-l-2xl overflow-hidden">
+          <div className="relative aspect-square bg-gray-50/70 rounded-l-2xl overflow-hidden p-4 sm:p-6 flex items-center justify-center">
             <Image
               src={product.image}
               alt={product.name}
               fill
               unoptimized
-              className="object-cover"
-              sizes="300px"
+              className="object-contain p-4"
+              sizes="240px"
             />
           </div>
 
           {/* Details */}
-          <div className="p-6 flex flex-col">
-            <span className="text-xs font-medium mb-1" style={{ color: "var(--color-primary)" }}>
+          <div className="p-5 flex flex-col justify-between">
+            <span className="text-[11px] font-semibold mb-1 block" style={{ color: "var(--color-primary)" }}>
               {product.category}
             </span>
-            <h2 className="text-xl font-bold mb-2" style={{ color: "var(--color-dark)" }}>
+            <h2 className="text-base sm:text-lg font-bold mb-1.5 leading-snug" style={{ color: "var(--color-dark)" }}>
               {product.name}
             </h2>
 

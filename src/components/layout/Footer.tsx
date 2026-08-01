@@ -208,10 +208,6 @@ export default function Footer() {
                 <span>123 Fresh Street, Market City, CA 90210</span>
               </li>
               <li className="flex items-center gap-3 text-xs sm:text-sm text-slate-400">
-                <Phone size={16} className="shrink-0 text-[var(--theme-color1)]" />
-                <span>+91 888 104 2340 (24/7 Support)</span>
-              </li>
-              <li className="flex items-center gap-3 text-xs sm:text-sm text-slate-400">
                 <Mail size={16} className="shrink-0 text-[var(--theme-color1)]" />
                 <span>support@efresh.com</span>
               </li>
