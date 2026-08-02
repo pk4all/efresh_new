@@ -380,6 +380,24 @@ function VoiceAssistantSidebarPanel() {
   const chatAbortControllerRef = useRef<AbortController | null>(null);
   const shouldTerminateAfterTtsRef = useRef(false);
 
+  // Every recognized utterance gets its own task id. Bumped the moment a new
+  // one starts, which both cancels whatever the previous task was doing
+  // (aborts its chat request) and lets that old task's own async
+  // continuations recognize they've been superseded and bail out silently
+  // instead of speaking a stale reply over/after the new one.
+  const activeTaskIdRef = useRef(0);
+
+  // Guards against two audio clips ever sounding at once. Every attempt to
+  // play TTS (filler, reply, welcome, apology...) claims the next number
+  // *before* it starts fetching, so "who asked most recently" is fixed at
+  // request time - not decided by whichever network response happens to
+  // come back first. Right before actually playing, each one re-checks that
+  // it's still the highest number claimed; if something newer has since
+  // taken over, it discards itself instead of talking over it. This closes
+  // a real race: e.g. a filler line's TTS fetch resolving *after* the real
+  // reply's already started playing would otherwise barge in on top of it.
+  const audioGenerationRef = useRef(0);
+
   const cleanupVad = () => {
     if (vadRafRef.current !== null) {
       cancelAnimationFrame(vadRafRef.current);
@@ -397,14 +415,14 @@ function VoiceAssistantSidebarPanel() {
   // was interrupted, or failed to play.
   const playTtsAudio = async (
     text: string,
-    onFinished: (result: { bargedIn: boolean; played: boolean; error?: string }) => void,
+    onFinished: (result: { bargedIn: boolean; played: boolean; error?: string; superseded?: boolean }) => void,
     allowBargeIn = true
   ) => {
     let stopBargeInMonitor: (() => void) | null = null;
     let stopPlaybackLevelMonitor: (() => void) | null = null;
     let settled = false;
 
-    const finish = (result: { bargedIn: boolean; played: boolean; error?: string }) => {
+    const finish = (result: { bargedIn: boolean; played: boolean; error?: string; superseded?: boolean }) => {
       if (settled) return;
       settled = true;
       stopBargeInMonitor?.();
@@ -413,8 +431,14 @@ function VoiceAssistantSidebarPanel() {
     };
 
     try {
-      // Cut off anything still playing (e.g. a filler line that hasn't
-      // finished yet) so responses never overlap each other.
+      // Claim the next generation number before fetching anything - "who
+      // asked most recently" is decided by request order, not by whichever
+      // network response happens to come back first.
+      audioGenerationRef.current += 1;
+      const myGeneration = audioGenerationRef.current;
+
+      // Stop whatever's currently audible right away rather than letting it
+      // keep playing while this request is still fetching.
       const prevAudio = useAgentStore.getState().activeAudio;
       if (prevAudio) {
         try { prevAudio.pause(); } catch (e) { }
@@ -437,6 +461,16 @@ function VoiceAssistantSidebarPanel() {
       }
 
       const audioBlob = await ttsRes.blob();
+
+      // Something newer has already claimed the "currently speaking" slot
+      // while this fetch was in flight (e.g. a filler line that took longer
+      // than the real reply it was supposed to be filling time for) -
+      // discard this one instead of talking over whatever's already playing.
+      if (audioGenerationRef.current !== myGeneration) {
+        finish({ bargedIn: false, played: false, superseded: true });
+        return;
+      }
+
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       setActiveAudio(audio);
@@ -481,7 +515,13 @@ function VoiceAssistantSidebarPanel() {
 
   // Shared "what happens after the assistant finishes speaking a turn" logic -
   // used by both the real chat reply and the local quick-reply shortcut below.
-  const handleAssistantTurnFinished = (result: { bargedIn: boolean; played: boolean; error?: string }) => {
+  const handleAssistantTurnFinished = (result: { bargedIn: boolean; played: boolean; error?: string; superseded?: boolean }) => {
+    if (result.superseded) {
+      // A newer clip already took over the speaker - not a failure, and
+      // that newer clip's own onFinished is the one that should drive what
+      // happens next, not this stale one.
+      return;
+    }
     if (!result.played) {
       terminateWithThankYou(result.error || "TTS error");
       return;
@@ -502,12 +542,22 @@ function VoiceAssistantSidebarPanel() {
     }
   };
 
+  // Wraps handleAssistantTurnFinished with a staleness check: if a newer
+  // task has started since this one's TTS began playing, this task has been
+  // superseded and should not act (e.g. must not call startRecording() and
+  // potentially fight with whatever the newer task is already doing).
+  const createTurnFinishedHandler = (myTaskId: number) =>
+    (result: { bargedIn: boolean; played: boolean; error?: string; superseded?: boolean }) => {
+      if (activeTaskIdRef.current !== myTaskId) return;
+      handleAssistantTurnFinished(result);
+    };
+
   // Handles the reply to "what's your delivery pincode?" - pulls the digits
   // out of whatever was transcribed, looks up delivery for that area the
   // same way PincodeModal does, and saves it so the rest of the site (and
   // subsequent agent replies, which read vendor_id fresh each call) picks it
   // up immediately. Keeps asking again on a bad/unrecognized answer.
-  const handlePincodeAnswer = async (rawText: string) => {
+  const handlePincodeAnswer = async (rawText: string, myTaskId: number) => {
     // Processing for this turn is done - clear this now (not just in
     // stopRecording's outer finally) so the mic isn't still gated as "busy"
     // by the time playTtsAudio's onFinished tries to start the next
@@ -515,12 +565,14 @@ function VoiceAssistantSidebarPanel() {
     setIsTranscribing(false);
 
     const digits = rawText.replace(/\D/g, "");
+    const onFinishedIfCurrent = createTurnFinishedHandler(myTaskId);
 
     if (digits.length < 3 || digits.length > 8) {
+      if (activeTaskIdRef.current !== myTaskId) return;
       const askAgainText = "Sorry, I didn't quite catch a pincode there - could you say it again? Just the numbers is perfect.";
       const msgId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, { id: msgId, sender: "agent", text: askAgainText }]);
-      await playTtsAudio(askAgainText, handleAssistantTurnFinished);
+      await playTtsAudio(askAgainText, onFinishedIfCurrent);
       return;
     }
 
@@ -533,6 +585,8 @@ function VoiceAssistantSidebarPanel() {
       if (!vendorIdValue && vendorList.length === 0) {
         throw new Error("No delivery available for this pincode");
       }
+
+      if (activeTaskIdRef.current !== myTaskId) return;
 
       localStorage.setItem("pincode", digits);
       if (vendorIdValue) {
@@ -547,13 +601,14 @@ function VoiceAssistantSidebarPanel() {
       const confirmText = `Perfect, I've set your delivery area to ${digits}. What can I help you find today?`;
       const msgId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, { id: msgId, sender: "agent", text: confirmText }]);
-      await playTtsAudio(confirmText, handleAssistantTurnFinished);
+      await playTtsAudio(confirmText, onFinishedIfCurrent);
     } catch (err: any) {
+      if (activeTaskIdRef.current !== myTaskId) return;
       console.error("Pincode lookup failed:", err);
       const failText = `Hmm, I couldn't find delivery for ${digits} - mind trying a different pincode?`;
       const msgId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, { id: msgId, sender: "agent", text: failText }]);
-      await playTtsAudio(failText, handleAssistantTurnFinished);
+      await playTtsAudio(failText, onFinishedIfCurrent);
     }
   };
 
@@ -992,6 +1047,18 @@ function VoiceAssistantSidebarPanel() {
       if (text && text.trim()) {
         setTextCommand(text);
 
+        // A new task has been given - kill whatever the previous one was
+        // still doing (abort its chat request if any is in flight) so only
+        // one task is ever running at a time, and mark this as the new
+        // current task so any of the old one's async continuations that do
+        // eventually resolve can recognize they've been superseded.
+        if (chatAbortControllerRef.current) {
+          chatAbortControllerRef.current.abort();
+          chatAbortControllerRef.current = null;
+        }
+        activeTaskIdRef.current += 1;
+        const myTaskId = activeTaskIdRef.current;
+
         // Add user query to messages list
         const userMsgId = Date.now().toString();
         setMessages(prev => [...prev, { id: userMsgId, sender: "user", text }]);
@@ -999,7 +1066,7 @@ function VoiceAssistantSidebarPanel() {
         // If we just asked for a delivery pincode, this turn is the answer -
         // handle it locally instead of treating it as a shopping question.
         if (awaitingPincodeRef.current) {
-          await handlePincodeAnswer(text);
+          await handlePincodeAnswer(text, myTaskId);
           return;
         }
 
@@ -1013,7 +1080,7 @@ function VoiceAssistantSidebarPanel() {
           setIsTranscribing(false);
           const quickMsgId = (Date.now() + 1).toString();
           setMessages(prev => [...prev, { id: quickMsgId, sender: "agent", text: quickReply }]);
-          await playTtsAudio(quickReply, handleAssistantTurnFinished);
+          await playTtsAudio(quickReply, createTurnFinishedHandler(myTaskId));
           return;
         }
 
@@ -1039,6 +1106,10 @@ function VoiceAssistantSidebarPanel() {
           clearTimeout(timeoutId);
           chatAbortControllerRef.current = null;
           if (!isAgentActiveRef.current) return;
+          // A newer task started while this one was waiting on the chat API
+          // (shouldn't normally happen since the abort above should have
+          // cancelled it, but guard anyway) - don't act on a stale reply.
+          if (activeTaskIdRef.current !== myTaskId) return;
           replyText = chatData.response || chatData.reply || chatData.text || (chatData.data && (chatData.data.response || chatData.data.reply || chatData.data.text)) || "I'm sorry, I couldn't understand that.";
           console.log(chatData, 'api response')
           let action = chatData?.data?.action.trim() || '';
@@ -1097,6 +1168,13 @@ function VoiceAssistantSidebarPanel() {
           }
         } catch (chatErr: any) {
           clearTimeout(timeoutId);
+          // This request was deliberately killed because a newer task took
+          // over (see the abort() above) - not a real failure, so no error
+          // message, no apology, nothing to speak. The new task is already
+          // handling things.
+          if (chatErr?.name === "AbortError" && activeTaskIdRef.current !== myTaskId) {
+            return;
+          }
           console.error("Chat API error:", chatErr);
           await terminateWithThankYou(chatErr.message || "Chat API error");
           return;
@@ -1121,13 +1199,15 @@ function VoiceAssistantSidebarPanel() {
           }
         }
 
+        if (activeTaskIdRef.current !== myTaskId) return;
+
         // Add agent response to messages list
         const agentMsgId = (Date.now() + 1).toString();
         setMessages(prev => [...prev, { id: agentMsgId, sender: "agent", text: replyText }]);
 
         // Convert response text to voice and play it. Barge-in lets the user
         // start talking over the assistant to cut it off, just like ChatGPT voice.
-        await playTtsAudio(stripMarkdown(replyText), handleAssistantTurnFinished);
+        await playTtsAudio(stripMarkdown(replyText), createTurnFinishedHandler(myTaskId));
 
         // Also check if text has matching shop commands to trigger navigation or action
         // await executeCommand(text);
