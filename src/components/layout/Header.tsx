@@ -91,20 +91,8 @@ export default function Header() {
         style={{ borderColor: "#eceff1" }}
       >
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3 select-none">
-          {/* Mobile Left: Categories Button */}
-          <div className="md:hidden flex items-center shrink-0">
-            <button
-              onClick={() => setCategoryDrawerOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
-              style={{ background: "var(--theme-color2)", color: "#ffffff" }}
-            >
-              <LayoutGrid size={16} />
-              <span>Categories</span>
-            </button>
-          </div>
-
-          {/* Logo (Centered on Mobile, Left-aligned on Desktop) */}
-          <div className="flex items-center justify-center md:justify-start flex-1 md:flex-initial">
+          {/* Logo (Left-aligned on Mobile and Desktop) */}
+          <div className="flex items-center justify-start shrink-0">
             <Link href="/" className="flex-shrink-0 flex items-center">
               <span className="font-extrabold text-xl sm:text-2xl text-black tracking-tight">
                 e<span style={{ color: "var(--color-primary)" }}>Fresh</span>

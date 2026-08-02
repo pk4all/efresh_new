@@ -413,65 +413,67 @@ function ShopContent() {
         </aside>
 
         {/* Right Content Area: Subcategory Tags + Product Grid */}
-        <div className="flex-1 min-w-0 max-w-full overflow-hidden pt-0">
+        <div className="flex-1 min-w-0 max-w-full !overflow-hidden pt-0">
           {/* Subcategories Multi-Row Tag Bar (Wraps cleanly without scrollbars) */}
+
           {subCategories.length > 0 && (
-            <div
-              ref={subCategoryScrollRef}
-              className="flex items-center gap-2 flex-wrap mb-3 pt-0 select-none max-w-full"
-            >
-              {/* "All" Tag */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubcategory("");
-                  setPage(1);
-                  const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
-                  if (activeCat) {
-                    const catSlug = categoryToSlug(activeCat);
-                    router.push(`/products/${catSlug}`, { scroll: false });
-                  }
-                }}
-                className={`px-3.5 py-1.5 rounded-xs text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${!activeSubcategory
-                  ? "bg-[var(--theme-color1)] text-white font-bold shadow-2xs"
-                  : "bg-gray-100/90 text-gray-700 hover:bg-gray-200"
-                  }`}
+            <div className="w-subcategory overflow-x-auto -mx-4 px-4 mb-3">
+              <div
+
+                className="flex items-center gap-2 flex-nowrap select-none w-max"
               >
-                All
-              </button>
+                {/* "All" Tag */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSubcategory("");
+                    setPage(1);
+                    const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
+                    if (activeCat) {
+                      const catSlug = categoryToSlug(activeCat);
+                      router.push(`/products/${catSlug}`, { scroll: false });
+                    }
+                  }}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-xs text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${!activeSubcategory
+                    ? "bg-[var(--theme-color1)] text-white font-bold shadow-2xs"
+                    : "bg-gray-100/90 text-gray-700 hover:bg-gray-200"
+                    }`}
+                >
+                  All
+                </button>
 
-              {/* Subcategory Pills */}
-              {subCategories.map((sub: any) => {
-                const subName = sub.name || sub.subcat_name || "";
-                const isSubActive = activeSubcategory.toLowerCase() === subName.toLowerCase() ||
-                  categoryToSlug(activeSubcategory) === categoryToSlug(subName);
+                {/* Subcategory Pills */}
+                {subCategories.map((sub: any) => {
+                  const subName = sub.name || sub.subcat_name || "";
+                  const isSubActive = activeSubcategory.toLowerCase() === subName.toLowerCase() ||
+                    categoryToSlug(activeSubcategory) === categoryToSlug(subName);
 
-                return (
-                  <button
-                    key={sub.id || sub.subcategory_id}
-                    type="button"
-                    onClick={() => {
-                      setActiveSubcategory(subName);
-                      setPage(1);
-                      const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
-                      if (activeCat) {
-                        const catSlug = categoryToSlug(activeCat);
-                        const subSlug = categoryToSlug(subName);
-                        router.push(`/products/${catSlug}/${subSlug}`, { scroll: false });
-                      }
-                    }}
-                    className={`px-3.5 py-1.5 rounded-xs text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${isSubActive
-                      ? "bg-[var(--theme-color1)] text-white font-bold shadow-2xs"
-                      : "bg-gray-100/90 text-gray-700 hover:bg-gray-200"
-                      }`}
-                  >
-                    {subName}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={sub.id || sub.subcategory_id}
+                      type="button"
+                      onClick={() => {
+                        setActiveSubcategory(subName);
+                        setPage(1);
+                        const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
+                        if (activeCat) {
+                          const catSlug = categoryToSlug(activeCat);
+                          const subSlug = categoryToSlug(subName);
+                          router.push(`/products/${catSlug}/${subSlug}`, { scroll: false });
+                        }
+                      }}
+                      className={`shrink-0 px-3.5 py-1.5 rounded-xs text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${isSubActive
+                        ? "bg-[var(--theme-color1)] text-white font-bold shadow-2xs"
+                        : "bg-gray-100/90 text-gray-700 hover:bg-gray-200"
+                        }`}
+                    >
+                      {subName}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
-
 
           {/* Product Grid */}
           {productsLoading ? (
