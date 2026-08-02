@@ -201,12 +201,26 @@ export default function Header() {
               )}
             </div>
 
-            {/* Mobile Hamburger Menu Button (Right Side) */}
+            {/* Mobile Hamburger Menu Button */}
             <button
               className="md:hidden flex items-center justify-center w-10 h-10 text-gray-700 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+
+            {/* Mobile Cart Button (Right side of Menu button) */}
+            <button
+              onClick={openCart}
+              className="md:hidden relative flex items-center justify-center w-10 h-10 text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Open Cart"
+            >
+              <ShoppingCart size={22} className="stroke-[2] text-[var(--theme-color1)]" />
+              {mounted && cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[var(--theme-color1)] text-white text-[10px] font-bold rounded-full h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white shadow-xs">
+                  {cartCount}
+                </span>
+              )}
             </button>
           </div>
         </div>

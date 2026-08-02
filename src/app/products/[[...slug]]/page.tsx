@@ -350,10 +350,10 @@ function ShopContent() {
     <div className="max-w-[1600px] mx-auto px-2 sm:px-4 py-4 sm:py-6 font-sans w-full max-w-full overflow-x-hidden">
       {/* Top Header Category Title */}
       <div className="pb-3 mb-4 border-b border-gray-100 flex items-center justify-between">
-        <h4 className="text-lg sm:text-xl font-extrabold text-gray-900 capitalize tracking-tight m-0">
+        <h4 className="!text-sm !sm:text-base font-bold text-gray-800 capitalize tracking-tight m-0">
           {pageTitle}
         </h4>
-        <span className="text-xs font-semibold text-gray-500">
+        <span className="!text-xs !sm:text-base font-semibold text-gray-500">
           {totalProducts} products found
         </span>
       </div>

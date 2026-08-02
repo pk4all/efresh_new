@@ -26,12 +26,9 @@ export default function CartDrawer() {
 
       {/* Drawer */}
       <div
-        className="fixed top-0 right-0 h-full z-[90] bg-white shadow-2xl flex flex-col font-sans"
-        style={{
-          width: "min(320px, 100vw)",
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
-        }}
+        className={`fixed top-0 right-0 h-full z-[100006] bg-white shadow-2xl flex flex-col font-sans w-full sm:w-[360px] transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
       >
         {/* Header */}
         <div
