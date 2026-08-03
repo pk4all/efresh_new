@@ -38,8 +38,10 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
     .slice(0, 4);
 
   const handleAdd = () => {
-    addItem(product, qty);
-    toast.success(`${product.name} added to cart!`);
+    const success = addItem(product, qty);
+    if (success) {
+      toast.success(`${product.name} added to cart!`);
+    }
   };
 
   const discount = Math.round(

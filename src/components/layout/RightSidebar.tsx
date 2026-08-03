@@ -845,8 +845,10 @@ function VoiceAssistantSidebarPanel() {
         }
 
         if (matchedProduct) {
-          addItem(matchedProduct, 1);
-          toast.success(`Added ${matchedProduct.name} to Cart`);
+          const success = addItem(matchedProduct, 1);
+          if (success) {
+            toast.success(`Added ${matchedProduct.name} to Cart`);
+          }
         } else {
           toast.error(`Product "${match[1]}" not found`);
         }

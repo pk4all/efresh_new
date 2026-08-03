@@ -20,9 +20,11 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(product.id));
 
   const handleAdd = () => {
-    addItem(product, qty);
-    toast.success(`${product.name} added to cart!`);
-    onClose();
+    const success = addItem(product, qty);
+    if (success) {
+      toast.success(`${product.name} added to cart!`);
+      onClose();
+    }
   };
 
   return (

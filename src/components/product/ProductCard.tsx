@@ -35,13 +35,15 @@ export default function ProductCard({ product }: Props) {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
-    addItem(product);
-    setAdded(true);
-    toast.success(`${product.name} added to cart!`, {
-      description: `$${product.price.toFixed(2)} × 1`,
-      duration: 2500,
-    });
-    setTimeout(() => setAdded(false), 1600);
+    const success = addItem(product);
+    if (success) {
+      setAdded(true);
+      toast.success(`${product.name} added to cart!`, {
+        description: `$${product.price.toFixed(2)} × 1`,
+        duration: 2500,
+      });
+      setTimeout(() => setAdded(false), 1600);
+    }
   };
 
   const handleWishlist = (e: React.MouseEvent) => {

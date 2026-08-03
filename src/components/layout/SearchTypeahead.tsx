@@ -118,8 +118,10 @@ export default function SearchTypeahead({
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
-    addItem(product, 1);
-    toast.success(`${product.name} added to cart!`);
+    const success = addItem(product, 1);
+    if (success) {
+      toast.success(`${product.name} added to cart!`);
+    }
   };
 
   const clearSearch = () => {

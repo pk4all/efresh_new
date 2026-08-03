@@ -20,7 +20,7 @@ interface CartStore {
   products: Product[];
   setProducts: (products: Product[]) => void;
   syncCartWithDb: () => Promise<void>;
-  addItem: (product: Product, quantity?: number) => void;
+  addItem: (product: Product, quantity?: number) => boolean;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -95,11 +95,11 @@ export const useCartStore = create<CartStore>()(
           if (!token) {
             toast.error("Please login to add items to cart");
             window.dispatchEvent(new Event("open-login-modal"));
-            return;
+            return false;
           }
           if (!localStorage.getItem("pincode")) {
             window.dispatchEvent(new CustomEvent("open-pincode-modal", { detail: { product, quantity } }));
-            return;
+            return false;
           }
         }
         const headers = getAuthHeaders();
@@ -133,6 +133,8 @@ export const useCartStore = create<CartStore>()(
           }
           return { items: [...state.items, { product, quantity }] };
         });
+
+        return true;
       },
 
       removeItem: (productId) => {
