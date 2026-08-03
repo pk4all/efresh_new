@@ -531,69 +531,217 @@ export default function CheckoutPage() {
               <>
                 {/* 1. Shipping Information */}
                 <div className="card p-5">
-                  <h2 className="font-bold text-base mb-4" style={{ color: "var(--color-dark)" }}>
-                    Shipping Information
-                  </h2>
+                  <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
+                    <h2 className="font-bold text-base text-gray-900">
+                      {showNewAddressForm ? "Add New Address" : "Shipping Information"}
+                    </h2>
+                    {showNewAddressForm && addresses.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNewAddressForm(false)}
+                        className="text-xs font-semibold text-[#0da487] hover:underline"
+                      >
+                        ← Select Saved Address
+                      </button>
+                    )}
+                  </div>
 
-                  {/* Address List & Selection */}
-                  {loadingAddresses ? (
-                    <div className="py-4 text-center text-sm text-gray-400">Loading saved addresses...</div>
-                  ) : (
-                    <div className="mb-5">
-                      <label className="block text-xs font-semibold mb-2" style={{ color: "var(--color-dark)" }}>
-                        Select Shipping Address *
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                        {addresses.map((addr) => (
-                          <div
-                            key={addr.id}
-                            onClick={() => {
-                              setSelectedAddressId(addr.id);
-                              setForm(prev => ({
-                                ...prev,
-                                address: addr.main_address || "",
-                                city: addr.main_city || "",
-                                zip: addr.zip_code || "",
-                                country: addr.country || "Australia",
-                              }));
-                            }}
-                            className="p-3.5 rounded-xl border-2 cursor-pointer transition-all hover:border-[#0da487]/50"
-                            style={{
-                              borderColor: selectedAddressId === addr.id ? "var(--color-primary)" : "var(--color-border)",
-                              backgroundColor: selectedAddressId === addr.id ? "var(--color-primary-light)" : "white",
-                            }}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-bold text-sm" style={{ color: "var(--color-dark)" }}>
-                                {addr.address || "Address"}
-                              </span>
-                              {addr.default_ship === 1 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0da487]/10 text-[#0da487] font-semibold">
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500 line-clamp-2">
-                              {addr.apartment ? `${addr.apartment}, ` : ""}{addr.main_address}, {addr.main_city}, {addr.main_state} {addr.zip_code}, {addr.country}
-                            </p>
-                          </div>
-                        ))}
+                  {showNewAddressForm ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                          Address Label (e.g. Home, Work) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Home"
+                          value={newAddressForm.label}
+                          onChange={(e) => setNewAddressForm((prev) => ({ ...prev, label: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+                        />
+                      </div>
 
-                        <div
-                          onClick={() => {
-                            setShowNewAddressForm(true);
-                          }}
-                          className="p-3.5 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center text-center transition-all hover:border-[#0da487]/50"
-                          style={{
-                            borderColor: "var(--color-border)",
-                            backgroundColor: "white",
-                          }}
-                        >
-                          <span className="font-bold text-sm text-[#0da487]">+ Add New Address</span>
-                          <span className="text-[10px] text-gray-400 mt-1">Ship to a different location</span>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                          Street Address <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="123 Main St"
+                          value={newAddressForm.main_address}
+                          onChange={(e) => setNewAddressForm((prev) => ({ ...prev, main_address: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                          Apartment, Suite, etc. (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Apt 4B"
+                          value={newAddressForm.apartment}
+                          onChange={(e) => setNewAddressForm((prev) => ({ ...prev, apartment: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                            City <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="New York"
+                            value={newAddressForm.main_city}
+                            onChange={(e) => setNewAddressForm((prev) => ({ ...prev, main_city: e.target.value }))}
+                            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                            State <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="NY"
+                            value={newAddressForm.main_state}
+                            onChange={(e) => setNewAddressForm((prev) => ({ ...prev, main_state: e.target.value }))}
+                            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+                          />
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                            ZIP / Postal Code <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="10001"
+                            value={newAddressForm.zip_code}
+                            onChange={(e) => setNewAddressForm((prev) => ({ ...prev, zip_code: e.target.value }))}
+                            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                            Country <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={newAddressForm.country || "Australia"}
+                            onChange={(e) => setNewAddressForm((prev) => ({ ...prev, country: e.target.value }))}
+                            className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800 cursor-pointer"
+                          >
+                            <option value="Australia">Australia</option>
+                            <option value="United States">United States</option>
+                            <option value="United Kingdom">United Kingdom</option>
+                            <option value="Canada">Canada</option>
+                            <option value="New Zealand">New Zealand</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 pt-2">
+                        <input
+                          type="checkbox"
+                          id="save-addr-checkout"
+                          checked={newAddressForm.default_ship}
+                          onChange={(e) => setNewAddressForm((prev) => ({ ...prev, default_ship: e.target.checked }))}
+                          className="w-4 h-4 rounded border-gray-300 text-[#0da487] focus:ring-[#0da487] cursor-pointer"
+                        />
+                        <label htmlFor="save-addr-checkout" className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+                          Set as default shipping address
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => setShowNewAddressForm(false)}
+                          className="px-5 py-2.5 text-sm font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 rounded-md cursor-pointer transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddNewAddressSubmit()}
+                          className="px-6 py-2.5 text-sm font-bold text-white bg-[#0da487] hover:bg-[#0b9378] rounded-md cursor-pointer transition-colors shadow-sm"
+                        >
+                          Save Address
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    /* Address List & Selection */
+                    loadingAddresses ? (
+                      <div className="py-4 text-center text-sm text-gray-400">Loading saved addresses...</div>
+                    ) : (
+                      <div className="mb-2">
+                        <label className="block text-xs font-semibold mb-2" style={{ color: "var(--color-dark)" }}>
+                          Select Shipping Address *
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                          {addresses.map((addr) => (
+                            <div
+                              key={addr.id}
+                              onClick={() => {
+                                setSelectedAddressId(addr.id);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  address: addr.main_address || "",
+                                  city: addr.main_city || "",
+                                  zip: addr.zip_code || "",
+                                  country: addr.country || "Australia",
+                                }));
+                              }}
+                              className="p-3.5 rounded-xl border-2 cursor-pointer transition-all hover:border-[#0da487]/50"
+                              style={{
+                                borderColor: selectedAddressId === addr.id ? "var(--color-primary)" : "var(--color-border)",
+                                backgroundColor: selectedAddressId === addr.id ? "var(--color-primary-light)" : "white",
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-bold text-sm" style={{ color: "var(--color-dark)" }}>
+                                  {addr.address || "Address"}
+                                </span>
+                                {addr.default_ship === 1 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0da487]/10 text-[#0da487] font-semibold">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 line-clamp-2">
+                                {addr.apartment ? `${addr.apartment}, ` : ""}
+                                {addr.main_address}, {addr.main_city}, {addr.main_state} {addr.zip_code}, {addr.country}
+                              </p>
+                            </div>
+                          ))}
+
+                          <div
+                            onClick={() => {
+                              setShowNewAddressForm(true);
+                            }}
+                            className="p-3.5 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center text-center transition-all hover:border-[#0da487]/50"
+                            style={{
+                              borderColor: "var(--color-border)",
+                              backgroundColor: "white",
+                            }}
+                          >
+                            <span className="font-bold text-sm text-[#0da487]">+ Add New Address</span>
+                            <span className="text-[10px] text-gray-400 mt-1">Ship to a different location</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -789,157 +937,6 @@ export default function CheckoutPage() {
           </div>
         </div>
       </form>
-      {showNewAddressForm && (
-        <div className="fixed inset-0 z-50 flex justify-start bg-black/60 transition-opacity">
-          {/* Backdrop click to close */}
-          <div className="absolute inset-0" onClick={() => setShowNewAddressForm(false)} />
-
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-300">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
-              <h3 className="font-bold text-lg" style={{ color: "var(--color-dark)" }}>Add New Address</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewAddressForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-semibold outline-none"
-              >
-                &times;
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                  Address Label (e.g. Home, Work) *
-                </label>
-                <input
-                  type="text" required placeholder="e.g. Home, Work"
-                  value={newAddressForm.label}
-                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, label: e.target.value }))}
-                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                  style={{ borderColor: "var(--color-border)" }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                  Street Address *
-                </label>
-                <input
-                  type="text" required placeholder="123 Main St"
-                  value={newAddressForm.main_address}
-                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_address: e.target.value }))}
-                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                  style={{ borderColor: "var(--color-border)" }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                  Apartment, Suite, etc. (Optional)
-                </label>
-                <input
-                  type="text" placeholder="Apt 4B"
-                  value={newAddressForm.apartment}
-                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, apartment: e.target.value }))}
-                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                  style={{ borderColor: "var(--color-border)" }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                    City *
-                  </label>
-                  <input
-                    type="text" required placeholder="New York"
-                    value={newAddressForm.main_city}
-                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_city: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)" }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                    State *
-                  </label>
-                  <input
-                    type="text" required placeholder="NY"
-                    value={newAddressForm.main_state}
-                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, main_state: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)" }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                    ZIP / Postal Code *
-                  </label>
-                  <input
-                    type="text" required placeholder="10001"
-                    value={newAddressForm.zip_code}
-                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, zip_code: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)" }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--color-dark)" }}>
-                    Country *
-                  </label>
-                  <select
-                    required value={newAddressForm.country}
-                    onChange={(e) => setNewAddressForm(prev => ({ ...prev, country: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
-                    style={{ borderColor: "var(--color-border)" }}
-                  >
-                    {["Australia", "United States", "United Kingdom", "Canada", "India"].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox" id="save-addr"
-                  checked={newAddressForm.default_ship}
-                  onChange={(e) => setNewAddressForm(prev => ({ ...prev, default_ship: e.target.checked }))}
-                  className="rounded accent-[#0da487] w-4 h-4 cursor-pointer"
-                />
-                <label htmlFor="save-addr" className="text-xs text-gray-600 font-medium cursor-pointer select-none">
-                  Set as default shipping address
-                </label>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t flex gap-3 bg-gray-50" style={{ borderColor: "var(--color-border)" }}>
-              <button
-                type="button"
-                onClick={() => setShowNewAddressForm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-300 font-semibold text-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddNewAddressSubmit()}
-                className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white transition-colors bg-[#0da487] hover:bg-[#0bc29e]"
-              >
-                Save Address
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

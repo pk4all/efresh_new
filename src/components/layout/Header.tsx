@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
+import { toast } from "sonner";
 import CartDrawer from "@/components/cart/CartDrawer";
 import CategoryDrawer from "@/components/layout/CategoryDrawer";
 import AuthModal from "@/components/auth/AuthModal";
@@ -54,6 +55,8 @@ export default function Header() {
       setUserName(name || "Guest");
       if (token) {
         useCartStore.getState().syncCartWithDb();
+      } else {
+        useCartStore.getState().clearCart();
       }
       const storedPincode = localStorage.getItem("pincode");
       if (storedPincode) {
@@ -183,6 +186,7 @@ export default function Header() {
                   ) : (
                     <button
                       onClick={() => {
+                        useCartStore.getState().clearCart();
                         localStorage.removeItem("token");
                         localStorage.removeItem("customer_id");
                         localStorage.removeItem("name");
@@ -190,6 +194,7 @@ export default function Header() {
                         setUserName("Guest");
                         setShowUserMenu(false);
                         window.dispatchEvent(new Event("storage"));
+                        toast.success("Successfully logged out!");
                       }}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors text-red-600 hover:text-red-700 cursor-pointer border-t"
                       style={{ borderColor: "var(--color-border)" }}
@@ -279,6 +284,7 @@ export default function Header() {
                   ))}
                   <button
                     onClick={() => {
+                      useCartStore.getState().clearCart();
                       localStorage.removeItem("token");
                       localStorage.removeItem("customer_id");
                       localStorage.removeItem("name");
@@ -286,6 +292,7 @@ export default function Header() {
                       setUserName("Guest");
                       setMobileMenuOpen(false);
                       window.dispatchEvent(new Event("storage"));
+                      toast.success("Successfully logged out!");
                     }}
                     className="py-2.5 px-3 text-sm font-semibold text-left w-full cursor-pointer text-red-600 flex items-center justify-between"
                   >

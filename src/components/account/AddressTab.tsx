@@ -8,18 +8,192 @@ interface AddressTabProps {
     name: string;
     phone: string;
   };
+  addressFormOpen: boolean;
+  editingAddressId: number | null;
+  addressForm: {
+    address: string;
+    main_address: string;
+    apartment: string;
+    main_city: string;
+    main_state: string;
+    zip_code: string;
+    country: string;
+    default_ship: boolean;
+  };
+  setAddressForm: React.Dispatch<React.SetStateAction<any>>;
   onAddAddress: () => void;
   onEditAddress: (addr: any) => void;
   onDeleteAddress: (id: number) => void;
+  onSaveAddress: (e: React.FormEvent) => void;
+  onCancelForm: () => void;
 }
 
 export default function AddressTab({
   addresses,
   profile,
+  addressFormOpen,
+  editingAddressId,
+  addressForm,
+  setAddressForm,
   onAddAddress,
   onEditAddress,
   onDeleteAddress,
+  onSaveAddress,
+  onCancelForm,
 }: AddressTabProps) {
+  if (addressFormOpen) {
+    return (
+      <div className="space-y-6">
+        <div className="border-b border-gray-100 pb-4">
+          <h2 className="text-xl font-black text-gray-800 tracking-tight">
+            {editingAddressId ? "Edit Address" : "Add New Address"}
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">Provide details for your delivery address.</p>
+        </div>
+
+        <form onSubmit={onSaveAddress} className="space-y-5 max-w-2xl">
+          {/* Address Label */}
+          <div>
+            <label className="block text-xs font-bold text-gray-800 mb-1.5">
+              Address Label (e.g. Home, Work) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Home"
+              value={addressForm.address}
+              onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
+              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+            />
+          </div>
+
+          {/* Street Address */}
+          <div>
+            <label className="block text-xs font-bold text-gray-800 mb-1.5">
+              Street Address <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="123 Main St"
+              value={addressForm.main_address}
+              onChange={(e) => setAddressForm({ ...addressForm, main_address: e.target.value })}
+              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+            />
+          </div>
+
+          {/* Apartment, Suite, etc. */}
+          <div>
+            <label className="block text-xs font-bold text-gray-800 mb-1.5">
+              Apartment, Suite, etc. (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="Apt 4B"
+              value={addressForm.apartment}
+              onChange={(e) => setAddressForm({ ...addressForm, apartment: e.target.value })}
+              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+            />
+          </div>
+
+          {/* City & State */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                City <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="New York"
+                value={addressForm.main_city}
+                onChange={(e) => setAddressForm({ ...addressForm, main_city: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                State <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="NY"
+                value={addressForm.main_state}
+                onChange={(e) => setAddressForm({ ...addressForm, main_state: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+              />
+            </div>
+          </div>
+
+          {/* Zip & Country */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                ZIP / Postal Code <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="10001"
+                value={addressForm.zip_code}
+                onChange={(e) => setAddressForm({ ...addressForm, zip_code: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                Country <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={addressForm.country || "Australia"}
+                onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-[#0da487] focus:ring-1 focus:ring-[#0da487] transition-all bg-white text-gray-800 cursor-pointer"
+              >
+                <option value="Australia">Australia</option>
+                <option value="United States">United States</option>
+                <option value="United Kingdom">United Kingdom</option>
+                <option value="Canada">Canada</option>
+                <option value="New Zealand">New Zealand</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Default Shipping Checkbox */}
+          <div className="flex items-center gap-2.5 pt-2">
+            <input
+              type="checkbox"
+              id="default_ship_inline"
+              checked={addressForm.default_ship}
+              onChange={(e) => setAddressForm({ ...addressForm, default_ship: e.target.checked })}
+              className="w-4 h-4 rounded border-gray-300 text-[#0da487] focus:ring-[#0da487] cursor-pointer"
+            />
+            <label htmlFor="default_ship_inline" className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+              Set as default shipping address
+            </label>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onCancelForm}
+              className="px-5 py-2.5 text-sm font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 rounded-md cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2.5 text-sm font-bold text-white bg-[#0da487] hover:bg-[#0b9378] rounded-md cursor-pointer transition-colors shadow-sm"
+            >
+              Save Address
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-6 border-b border-gray-100 pb-4 flex items-center justify-between">

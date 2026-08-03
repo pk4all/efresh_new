@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import { useCartStore } from "@/store/cartStore";
 
 /**
  * Checks if the API response or error indicates an invalid or expired token.
@@ -10,7 +11,8 @@ export function handleAuthError(detail: any): boolean {
   const errMsg = typeof detail === "string" ? detail : (detail?.[0]?.msg || detail?.msg || JSON.stringify(detail));
   
   if (errMsg && (errMsg.includes("Invalid or expired token") || errMsg.includes("expired token") || errMsg.includes("invalid token"))) {
-    // Delete session
+    // Clear cart and session
+    useCartStore.getState().clearCart();
     localStorage.removeItem("token");
     localStorage.removeItem("name");
     localStorage.removeItem("customer_id");

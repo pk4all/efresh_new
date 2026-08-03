@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartItem, Product } from "@/types";
+import { toast } from "sonner";
 
 const getAuthHeaders = () => {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -89,9 +90,17 @@ export const useCartStore = create<CartStore>()(
       },
 
       addItem: (product, quantity = 1) => {
-        if (typeof window !== "undefined" && !localStorage.getItem("pincode")) {
-          window.dispatchEvent(new CustomEvent("open-pincode-modal", { detail: { product, quantity } }));
-          return;
+        if (typeof window !== "undefined") {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            toast.error("Please login to add items to cart");
+            window.dispatchEvent(new Event("open-login-modal"));
+            return;
+          }
+          if (!localStorage.getItem("pincode")) {
+            window.dispatchEvent(new CustomEvent("open-pincode-modal", { detail: { product, quantity } }));
+            return;
+          }
         }
         const headers = getAuthHeaders();
         if (headers) {

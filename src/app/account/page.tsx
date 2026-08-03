@@ -23,6 +23,7 @@ import ProfileTab from "@/components/account/ProfileTab";
 import PrivacyTab from "@/components/account/PrivacyTab";
 import { handleAuthError } from "@/utils/auth";
 import { fetchUserOrders, fetchUserProfile, updateUserProfile } from "@/utils/api";
+import { useCartStore } from "@/store/cartStore";
 
 type TabType = "dashboard" | "orders" | "wishlist" | "address" | "profile" | "privacy";
 
@@ -426,7 +427,15 @@ function AccountContent() {
             })}
             <li className="mt-2 pt-2 border-t border-gray-100 px-6 pb-4">
               <button
-                onClick={() => toast.success("Successfully logged out!")}
+                onClick={() => {
+                  useCartStore.getState().clearCart();
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("customer_id");
+                  localStorage.removeItem("name");
+                  window.dispatchEvent(new Event("storage"));
+                  toast.success("Successfully logged out!");
+                  router.push("/");
+                }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-all duration-200 cursor-pointer justify-center"
               >
                 <LogOut size={18} className="text-rose-500" />
@@ -479,9 +488,15 @@ function AccountContent() {
               <AddressTab
                 addresses={addresses}
                 profile={profile}
+                addressFormOpen={addressFormOpen}
+                editingAddressId={editingAddressId}
+                addressForm={addressForm}
+                setAddressForm={setAddressForm}
                 onAddAddress={handleAddAddress}
                 onEditAddress={handleEditAddress}
                 onDeleteAddress={handleDeleteAddress}
+                onSaveAddress={handleSaveAddress}
+                onCancelForm={() => setAddressFormOpen(false)}
               />
             )}
 
@@ -501,121 +516,6 @@ function AccountContent() {
           </div>
         </div>
       </div>
-
-      {addressFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative border border-gray-100">
-            <h3 className="text-lg font-black text-gray-800 tracking-tight mb-1">
-              {editingAddressId ? "Edit Address" : "Add New Address"}
-            </h3>
-            <p className="text-xs text-gray-400 mb-6">Provide details for your delivery address.</p>
-
-            <form onSubmit={handleSaveAddress} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-gray-700 uppercase tracking-wider">Address Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Home, Office"
-                  value={addressForm.address}
-                  onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0da487]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-gray-700 uppercase tracking-wider">Street Address</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 1418 Riverwood Drive"
-                  value={addressForm.main_address}
-                  onChange={(e) => setAddressForm({ ...addressForm, main_address: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0da487]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-gray-700 uppercase tracking-wider">Apartment/Suite (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Unit 4"
-                    value={addressForm.apartment}
-                    onChange={(e) => setAddressForm({ ...addressForm, apartment: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0da487]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-gray-700 uppercase tracking-wider">City/Suburb</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Redding"
-                    value={addressForm.main_city}
-                    onChange={(e) => setAddressForm({ ...addressForm, main_city: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0da487]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-gray-700 uppercase tracking-wider">State</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. CA"
-                    value={addressForm.main_state}
-                    onChange={(e) => setAddressForm({ ...addressForm, main_state: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0da487]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-gray-700 uppercase tracking-wider">Zip Code</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 96052"
-                    value={addressForm.zip_code}
-                    onChange={(e) => setAddressForm({ ...addressForm, zip_code: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0da487]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 py-2">
-                <input
-                  type="checkbox"
-                  id="default_ship"
-                  checked={addressForm.default_ship}
-                  onChange={(e) => setAddressForm({ ...addressForm, default_ship: e.target.checked })}
-                  className="rounded border-gray-300 text-[#0da487] focus:ring-[#0da487]"
-                />
-                <label htmlFor="default_ship" className="text-xs font-semibold text-gray-700 cursor-pointer select-none">
-                  Set as default shipping address
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setAddressFormOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 cursor-pointer border border-gray-200 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary px-5 py-2 text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  Save Address
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
