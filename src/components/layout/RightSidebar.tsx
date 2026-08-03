@@ -15,6 +15,9 @@ import { fetchProductsFromAgent, mapApiProductToProduct, createAgentSession, sen
 import { Product } from "@/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Scribe, RealtimeEvents, CommitStrategy, type RealtimeConnection } from "@elevenlabs/client";
+
+type SttSession = { connection: RealtimeConnection; getTranscript: () => string; isReady: () => boolean };
 
 function stripMarkdown(mdText: string): string {
   if (!mdText) return "";
@@ -45,7 +48,7 @@ function stripMarkdown(mdText: string): string {
 // window so the assistant listens naturally and only stops once you pause,
 // like ChatGPT's voice mode rather than cutting you off on a timer.
 const VAD_SPEECH_RMS_THRESHOLD = 0.02;
-const VAD_SILENCE_HOLD_MS = 1100;
+const VAD_SILENCE_HOLD_MS = 3000;
 const VAD_MAX_RECORDING_MS = 30000; // hard safety cap if silence is never detected
 
 // Barge-in is a little more conservative than regular listening: the mic is
@@ -330,14 +333,55 @@ function VoiceAssistantSidebarPanel() {
   const products = useCartStore((s) => s.products);
   const setProducts = useCartStore((s) => s.setProducts);
 
-  const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const vadRafRef = useRef<number | null>(null);
   const vadAudioCtxRef = useRef<AudioContext | null>(null);
+  // The raw mic stream for the current recording segment - VAD's analyser
+  // and the realtime STT connection's own internal capture both read from
+  // the same physical microphone independently, but this is the handle used
+  // to stop tracks and free the mic between segments.
+  const currentMicStreamRef = useRef<MediaStream | null>(null);
   // Set once the current recording segment has confirmed real speech (past
   // noise-floor calibration + sustain check) - gates whether we bother
-  // sending the clip to transcription at all.
+  // finalizing/sending anything to transcription at all.
   const speechConfirmedRef = useRef(false);
+  // Manually toggled by clicking the orb - while true, nothing (VAD turn
+  // completion, barge-in, the assistant finishing a reply) is allowed to
+  // start listening again. Ref for synchronous checks inside
+  // startRecording()'s guard, mirrored into state to drive the orb's label.
+  const isListeningPausedRef = useRef(false);
+  const [isListeningPaused, setIsListeningPaused] = useState(false);
+  // Set by playTtsAudio while a barge-in-able clip is playing, to the exact
+  // same "stop this clip and start listening" function the voice barge-in
+  // monitor calls - lets the manual stop-speaking button trigger the
+  // identical, already-consistent code path instead of a separate one.
+  const manualInterruptRef = useRef<(() => void) | null>(null);
+  // Set by the realtime STT connection's own close/error handlers if it dies
+  // mid-recording; the VAD tick loop polls this each frame and ends the
+  // segment from there, rather than calling stopRecording() directly from a
+  // WebSocket event callback.
+  const connectionDroppedRef = useRef(false);
+
+  // Realtime speech-to-text (ElevenLabs Scribe v2 realtime, over WebSocket).
+  // Streams audio continuously while recording instead of uploading one big
+  // clip after the fact - turn-taking (when to stop listening) is still
+  // entirely decided by our own VAD above, this only replaces how the
+  // transcript text itself is obtained. Manual commit strategy: we tell it
+  // when a turn is over (via our own silence detection), not its own VAD.
+  // Each connection gets its OWN isolated transcript accumulator (a plain
+  // closure variable, not a shared ref) - a single shared ref meant a late
+  // event from a just-superseded connection could land after a new one had
+  // already reset it, leaking old text into the new segment.
+  const scribeConnectionRef = useRef<SttSession | null>(null);
+  const [livePartialText, setLivePartialText] = useState("");
+  // A connection opened ahead of time (muted, so it isn't yet capturing
+  // anything real) so it's already fully connected the instant it's needed -
+  // whether that's a barge-in or you replying the moment a response
+  // finishes. Without this, opening a fresh connection from scratch (token
+  // fetch + WebSocket handshake) takes long enough that the first words
+  // spoken right after an interruption or a quick reply could be lost
+  // before the connection was even ready to receive them.
+  const prewarmedSttRef = useRef<Promise<SttSession | null> | null>(null);
 
   // When true, the next transcribed turn is treated as the answer to "what's
   // your pincode?" instead of a normal shopping message. Login is no longer
@@ -368,8 +412,6 @@ function VoiceAssistantSidebarPanel() {
   const setSessionId = useAgentStore((s) => s.setSessionId);
   const messages = useAgentStore((s) => s.messages);
   const setMessages = useAgentStore((s) => s.setMessages);
-  const mediaRecorder = useAgentStore((s) => s.mediaRecorder);
-  const setMediaRecorder = useAgentStore((s) => s.setMediaRecorder);
   const activeAudio = useAgentStore((s) => s.activeAudio);
   const setActiveAudio = useAgentStore((s) => s.setActiveAudio);
   const isTranscribing = useAgentStore((s) => s.isTranscribing);
@@ -409,6 +451,201 @@ function VoiceAssistantSidebarPanel() {
     }
   };
 
+  // Closes the realtime STT connection (if any) without waiting for a final
+  // commit - used when the agent is stopped/torn down mid-recording, as
+  // opposed to stopRecording()'s normal "commit and read the transcript" path.
+  const cleanupScribeConnection = () => {
+    if (scribeConnectionRef.current) {
+      try { scribeConnectionRef.current.connection.close(); } catch (e) { }
+      scribeConnectionRef.current = null;
+    }
+    setLivePartialText("");
+  };
+
+  // Closes and discards any connection that was opened ahead of time but
+  // never actually got used (e.g. the agent was stopped while a reply was
+  // still playing, before a barge-in or the next turn ever claimed it).
+  const cleanupPrewarmedStt = () => {
+    const pending = prewarmedSttRef.current;
+    prewarmedSttRef.current = null;
+    if (pending) {
+      pending.then((session) => {
+        if (session) { try { session.connection.close(); } catch (e) { } }
+      });
+    }
+  };
+
+  // Opens a fresh realtime STT connection. Mints a short-lived token
+  // server-side first so the raw ElevenLabs API key is never exposed to the
+  // browser. When startMuted is set (used for pre-warming ahead of time,
+  // before we actually want it capturing anything), the mic is muted the
+  // instant it's available so it doesn't pick up the assistant's own
+  // playing TTS audio while just standing by - callers unmute it themselves
+  // once they actually start using it.
+  const startRealtimeStt = async (opts?: { startMuted?: boolean }): Promise<SttSession | null> => {
+    try {
+      const tokenRes = await fetch("/demo/api/stt-token", { method: "POST" });
+      if (!tokenRes.ok) {
+        const errData = await tokenRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to get realtime STT token");
+      }
+      const { token } = await tokenRes.json();
+
+      let accumulated = "";
+      let ready = false;
+
+      const connection = Scribe.connect({
+        token,
+        modelId: "scribe_v2_realtime",
+        languageCode: "en",
+        commitStrategy: CommitStrategy.MANUAL,
+        microphone: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      if (opts?.startMuted) {
+        try { connection.mute(); } catch (e) { }
+      }
+
+      connection.on(RealtimeEvents.SESSION_STARTED, () => {
+        ready = true;
+        if (opts?.startMuted) {
+          // The underlying mic track may not have existed yet the first
+          // time mute() was attempted right after connect() - it certainly
+          // does by now, so make sure it actually took.
+          try { connection.mute(); } catch (e) { }
+        }
+      });
+      connection.on(RealtimeEvents.PARTIAL_TRANSCRIPT, (data) => {
+        setLivePartialText(data.text || "");
+      });
+      connection.on(RealtimeEvents.COMMITTED_TRANSCRIPT, (data) => {
+        const chunk = (data.text || "").trim();
+        if (chunk) {
+          accumulated = accumulated ? `${accumulated} ${chunk}` : chunk;
+        }
+        setLivePartialText("");
+      });
+      connection.on(RealtimeEvents.ERROR, (data: any) => {
+        console.error("Realtime STT error:", data?.error || data?.message || JSON.stringify(data));
+      });
+
+      // The connection can die mid-recording (dropped network, quota/rate
+      // limit, session timeout, etc). Without reacting to this, the mic
+      // would keep "listening" locally while nothing is actually being
+      // transcribed server-side, which looks like the agent silently
+      // stopping to respond even though you're still talking. Flag it here;
+      // the VAD tick loop (which already owns ending a recording segment)
+      // picks this up on its next frame and ends the segment from there.
+      const endSegmentIfCurrent = () => {
+        if (scribeConnectionRef.current?.connection === connection) {
+          connectionDroppedRef.current = true;
+        }
+      };
+      connection.on(RealtimeEvents.CLOSE, endSegmentIfCurrent);
+      connection.on(RealtimeEvents.AUTH_ERROR, endSegmentIfCurrent);
+      connection.on(RealtimeEvents.QUOTA_EXCEEDED, endSegmentIfCurrent);
+      connection.on(RealtimeEvents.RATE_LIMITED, endSegmentIfCurrent);
+      connection.on(RealtimeEvents.RESOURCE_EXHAUSTED, endSegmentIfCurrent);
+      connection.on(RealtimeEvents.SESSION_TIME_LIMIT_EXCEEDED, endSegmentIfCurrent);
+      connection.on(RealtimeEvents.TRANSCRIBER_ERROR, endSegmentIfCurrent);
+
+      return { connection, getTranscript: () => accumulated, isReady: () => ready };
+    } catch (err) {
+      console.error("Failed to start realtime STT:", err);
+      return null;
+    }
+  };
+
+  // Starts opening a connection now (muted) so it's ready ahead of need,
+  // rather than only when we actually call for one. A no-op if one is
+  // already warming/warmed.
+  const prewarmRealtimeStt = () => {
+    if (!prewarmedSttRef.current) {
+      prewarmedSttRef.current = startRealtimeStt({ startMuted: true });
+    }
+  };
+
+  // Claims the pre-warmed connection if one is ready (or still connecting -
+  // either way it's further along than starting from scratch), falling back
+  // to opening a brand new one if none was pre-warmed. Either way, unmutes
+  // it (a fresh connection isn't muted to begin with, so this is a no-op for
+  // that path) and clears the pre-warm slot so nothing else can also claim it.
+  const takeSttConnection = (): Promise<SttSession | null> => {
+    const pending = prewarmedSttRef.current;
+    prewarmedSttRef.current = null;
+    const sessionPromise = pending || startRealtimeStt();
+    return sessionPromise.then((session) => {
+      if (session) {
+        const tryUnmute = () => { try { session.connection.unmute(); } catch (e) { } };
+        tryUnmute();
+        // If this connection was only just pre-warmed (little/no lead time -
+        // e.g. a short reply that got interrupted almost immediately), the
+        // SDK's own internal mic track may not exist yet, and unmute() would
+        // silently fail with nothing to retry it - leaving the connection
+        // stuck muted (mic effectively dead) for the rest of this segment.
+        // Retry once the session is confirmed up, since the track certainly
+        // exists by then; harmless no-op if the first attempt already worked.
+        session.connection.on(RealtimeEvents.SESSION_STARTED, tryUnmute);
+      }
+      return session;
+    });
+  };
+
+  // Tells the connection this segment is over and waits for its final
+  // committed_transcript event (with a short timeout so a dropped event
+  // can't hang the conversation forever), then closes the connection.
+  const finalizeRealtimeStt = (session: SttSession): Promise<string> => {
+    const { connection, getTranscript } = session;
+
+    // Mute the mic capture the instant we decide the input is done, not once
+    // the connection eventually closes. Committing just tells the server
+    // "finalize what you have" - the SDK's own mic stream keeps actively
+    // capturing and sending audio afterward until close(), so without this
+    // the mic stays functionally "listening" for as long as it takes to get
+    // the committed transcript back and the connection to tear down.
+    try { connection.mute(); } catch (e) { }
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        // Without this, a finished connection was left open indefinitely -
+        // its WebSocket and the SDK's own internal mic stream would both
+        // keep running in the background for the rest of the session.
+        try { connection.close(); } catch (e) { }
+        resolve(getTranscript().trim());
+      };
+
+      const timeoutId = setTimeout(finish, 4000);
+
+      const doCommit = () => {
+        connection.on(RealtimeEvents.COMMITTED_TRANSCRIPT, finish);
+        try {
+          connection.commit();
+        } catch (e) {
+          console.error("Failed to commit realtime STT segment:", e);
+          finish();
+        }
+      };
+
+      if (session.isReady()) {
+        doCommit();
+      } else {
+        // The WebSocket handshake hasn't finished yet - commit() would throw
+        // "WebSocket is not connected" if called now, so wait for the
+        // session to actually start first. The timeout above still applies
+        // as a backstop if it never does.
+        connection.on(RealtimeEvents.SESSION_STARTED, doCommit);
+      }
+    });
+  };
+
   // Fetches TTS audio, plays it, and lets the user barge in (start talking)
   // to cut it off early - mirrors how ChatGPT's voice mode behaves. Always
   // resolves exactly once via onFinished, whether the clip finished naturally,
@@ -421,14 +658,29 @@ function VoiceAssistantSidebarPanel() {
     let stopBargeInMonitor: (() => void) | null = null;
     let stopPlaybackLevelMonitor: (() => void) | null = null;
     let settled = false;
+    let myInterruptFn: (() => void) | null = null;
 
     const finish = (result: { bargedIn: boolean; played: boolean; error?: string; superseded?: boolean }) => {
       if (settled) return;
       settled = true;
       stopBargeInMonitor?.();
       stopPlaybackLevelMonitor?.();
+      // Only clear the shared slot if it's still pointing at this call's own
+      // interrupt function - a newer clip may have already replaced it.
+      if (manualInterruptRef.current === myInterruptFn) {
+        manualInterruptRef.current = null;
+      }
       onFinished(result);
     };
+
+    // Get the next listening connection warming up now, in parallel with
+    // everything below, so it's already open by the time it's actually
+    // needed (a barge-in, or you replying right as this finishes) instead of
+    // starting from scratch at that moment. Skipped for clips that aren't
+    // followed by listening again (filler lines, the goodbye message).
+    if (allowBargeIn) {
+      prewarmRealtimeStt();
+    }
 
     try {
       // Claim the next generation number before fetching anything - "who
@@ -490,12 +742,14 @@ function VoiceAssistantSidebarPanel() {
       };
 
       if (allowBargeIn) {
-        stopBargeInMonitor = createBargeInMonitor(() => {
+        myInterruptFn = () => {
           try { audio.pause(); } catch (e) { }
           URL.revokeObjectURL(audioUrl);
           setActiveAudio(null);
           finish({ bargedIn: true, played: true });
-        });
+        };
+        manualInterruptRef.current = myInterruptFn;
+        stopBargeInMonitor = createBargeInMonitor(myInterruptFn);
       }
 
       await audio.play();
@@ -626,16 +880,12 @@ function VoiceAssistantSidebarPanel() {
     setIsRecording(false);
     setIsTranscribing(false);
 
-    const activeRecorder = useAgentStore.getState().mediaRecorder;
-    if (activeRecorder) {
-      if (activeRecorder.state !== "inactive") {
-        try { activeRecorder.stop(); } catch (e) { }
-      }
-      if (activeRecorder.stream) {
-        activeRecorder.stream.getTracks().forEach((t) => t.stop());
-      }
-      setMediaRecorder(null);
+    if (currentMicStreamRef.current) {
+      try { currentMicStreamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { }
+      currentMicStreamRef.current = null;
     }
+    cleanupScribeConnection();
+    cleanupPrewarmedStt();
 
     if (chatAbortControllerRef.current) {
       chatAbortControllerRef.current.abort();
@@ -684,13 +934,20 @@ function VoiceAssistantSidebarPanel() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cleanup recording timeout and VAD listeners on unmount
+  // Cleanup recording timeout, VAD listeners, mic stream, and the realtime
+  // STT connection on unmount.
   useEffect(() => {
     return () => {
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
       }
       cleanupVad();
+      if (currentMicStreamRef.current) {
+        try { currentMicStreamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { }
+        currentMicStreamRef.current = null;
+      }
+      cleanupScribeConnection();
+      cleanupPrewarmedStt();
     };
   }, []);
 
@@ -868,14 +1125,19 @@ function VoiceAssistantSidebarPanel() {
   // were background noise, inflating the threshold and making the rest of
   // what they say fail to register as speech - so skip straight to "speech
   // confirmed" instead of calibrating from scratch mid-sentence.
-  async function startRecording(assumeSpeaking = false) {
+  async function startRecording(assumeSpeaking = false, retryCount = 0) {
     const currentActiveAudio = useAgentStore.getState().activeAudio;
     const currentIsTranscribing = useAgentStore.getState().isTranscribing;
-    if (!isAgentActiveRef.current || currentActiveAudio || currentIsTranscribing) return;
+    if (!isAgentActiveRef.current || currentActiveAudio || currentIsTranscribing || isListeningPausedRef.current) return;
 
-    // Stop any existing active recorder
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      try { mediaRecorder.stop(); } catch (e) { }
+    // Stop any existing active recording session before starting a new one
+    if (currentMicStreamRef.current) {
+      try { currentMicStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) { }
+      currentMicStreamRef.current = null;
+    }
+    if (scribeConnectionRef.current) {
+      try { scribeConnectionRef.current.connection.close(); } catch (e) { }
+      scribeConnectionRef.current = null;
     }
     // Stop any existing playing audio
     if (activeAudio) {
@@ -887,16 +1149,25 @@ function VoiceAssistantSidebarPanel() {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      // Safari prefers audio/mp4, Chrome/Firefox prefer audio/webm
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm' : 'audio/mp4';
-      const recorder = new MediaRecorder(stream, { mimeType });
-      setMediaRecorder(recorder);
-
-      chunksRef.current = [];
-      recorder.ondataavailable = e => chunksRef.current.push(e.data);
-      recorder.start();
+      currentMicStreamRef.current = stream;
       setIsRecording(true);
+
+      // Claims the connection pre-warmed while the assistant was last
+      // speaking (already open, just needs unmuting) if one's available,
+      // otherwise falls back to opening a fresh one. Runs in parallel with
+      // VAD setup below - it has its own independent mic capture (via the
+      // SDK's microphone option), so it doesn't need to wait on anything
+      // here. Turn-taking (deciding when the user has stopped talking) is
+      // entirely driven by our own VAD, not by this connection.
+      takeSttConnection().then((session) => {
+        // The recording may have already been stopped/superseded by the
+        // time this resolves.
+        if (currentMicStreamRef.current !== stream) {
+          session?.connection.close();
+          return;
+        }
+        scribeConnectionRef.current = session;
+      });
 
       // Voice-activity detection: keep listening naturally and only stop once
       // the user has spoken and then paused, instead of a blind fixed window.
@@ -913,6 +1184,7 @@ function VoiceAssistantSidebarPanel() {
       const vadData = new Uint8Array(analyser.fftSize);
 
       speechConfirmedRef.current = assumeSpeaking;
+      connectionDroppedRef.current = false;
       let speechStarted = assumeSpeaking;
       let silenceStart: number | null = null;
       let aboveThresholdSince: number | null = null;
@@ -925,13 +1197,45 @@ function VoiceAssistantSidebarPanel() {
       const calibrationStart = performance.now();
       const calibrationSamples: number[] = [];
       let dynamicThreshold = VAD_SPEECH_RMS_THRESHOLD;
+      // If you answer immediately (e.g. a quick single-word reply right as
+      // listening starts), the whole thing can happen inside the 400ms
+      // calibration window - which used to be completely blind to speech,
+      // so a fast short answer could be swallowed entirely, leaving nothing
+      // to trigger the silence timer and stranding the recording open until
+      // the 30s hard cap. Now a clearly loud, sustained signal is trusted as
+      // real speech (against the safe static threshold) even mid-calibration,
+      // instead of waiting the calibration window out no matter what.
+      let earlySpeechSince: number | null = null;
 
       const tick = () => {
+        if (connectionDroppedRef.current) {
+          connectionDroppedRef.current = false;
+          stopRecording();
+          return;
+        }
+
         const rms = computeRms(analyser, vadData);
         orbLevelRef.current = rms;
 
         if (calibrating) {
           calibrationSamples.push(rms);
+
+          if (rms > VAD_SPEECH_RMS_THRESHOLD) {
+            if (earlySpeechSince === null) earlySpeechSince = performance.now();
+            if (performance.now() - earlySpeechSince >= VAD_SUSTAIN_MS) {
+              calibrating = false;
+              dynamicThreshold = VAD_SPEECH_RMS_THRESHOLD;
+              speechStarted = true;
+              speechConfirmedRef.current = true;
+              aboveThresholdSince = earlySpeechSince;
+              silenceStart = null;
+              vadRafRef.current = requestAnimationFrame(tick);
+              return;
+            }
+          } else {
+            earlySpeechSince = null;
+          }
+
           if (performance.now() - calibrationStart >= NOISE_CALIBRATION_MS) {
             calibrating = false;
             const noiseFloor = calibrationSamples.reduce((a, b) => a + b, 0) / calibrationSamples.length;
@@ -972,17 +1276,47 @@ function VoiceAssistantSidebarPanel() {
       recordingTimeoutRef.current = setTimeout(() => {
         stopRecording();
       }, VAD_MAX_RECORDING_MS);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start recording:", err);
-      toast.error("Failed to access microphone. Please check permissions.");
-      setIsAgentActive(false);
-      isAgentActiveRef.current = false;
+
+      // A permission denial genuinely can't be recovered from without the
+      // user re-granting access, so stop the whole session for that. Other
+      // failures (most commonly a transient "device busy" error from the mic
+      // being momentarily claimed by more than one stream right around a
+      // barge-in - the barge-in monitor's own stream, a pre-warmed STT
+      // connection's own internal mic capture, and this new request can all
+      // briefly overlap) are very likely to succeed a moment later - retry
+      // instead of killing the whole agent and forcing a manual restart over
+      // what's usually a sub-second hiccup. A few attempts with backoff
+      // rather than just one, since hardware release isn't always instant.
+      const isPermissionError = err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError";
+      if (isPermissionError) {
+        toast.error("Failed to access microphone. Please check permissions.");
+        setIsAgentActive(false);
+        isAgentActiveRef.current = false;
+        return;
+      }
+
+      const maxRetries = 5;
+      if (isAgentActiveRef.current && retryCount < maxRetries) {
+        const delay = 300 + retryCount * 300;
+        setTimeout(() => {
+          if (isAgentActiveRef.current) startRecording(assumeSpeaking, retryCount + 1);
+        }, delay);
+      } else if (isAgentActiveRef.current) {
+        // Genuinely stuck, not just a brief hiccup - say so instead of
+        // silently doing nothing, but leave the agent active so a manual
+        // "Start Agent" toggle (or the next barge-in) can try again rather
+        // than forcing a full stop.
+        toast.error("Couldn't access the microphone after several tries. Please check that nothing else is using it.");
+      }
     }
   }
 
   async function stopRecording() {
-    const activeRecorder = useAgentStore.getState().mediaRecorder;
-    if (!activeRecorder) return;
+    const stream = currentMicStreamRef.current;
+    const sttSession = scribeConnectionRef.current;
+    if (!stream && !sttSession) return;
 
     cleanupVad();
     if (recordingTimeoutRef.current) {
@@ -993,37 +1327,24 @@ function VoiceAssistantSidebarPanel() {
     setIsRecording(false);
     setIsTranscribing(true);
 
+    // Stop the mic stream right away to turn off the microphone light - the
+    // realtime STT connection keeps whatever audio it's already streamed
+    // internally and doesn't need the stream kept open to finalize.
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (e) { }
+    }
+    currentMicStreamRef.current = null;
+
     try {
-      activeRecorder.stop();
-      // Wait for a short moment to let the media recorder stop fully and data to be pushed
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const audioBlob = new Blob(chunksRef.current, { type: activeRecorder.mimeType });
-
-      // Stop all tracks on the stream to turn off the microphone light
-      if (activeRecorder.stream) {
-        activeRecorder.stream.getTracks().forEach(t => t.stop());
-      }
-      setMediaRecorder(null);
-
-      // Prevent empty or corrupted audio error if recorded blob is too small/empty
-      if (!audioBlob || audioBlob.size < 500) {
-        console.warn("Recorded audio blob is empty or too small:", audioBlob?.size);
-        setIsTranscribing(false);
-        if (isAgentActiveRef.current) {
-          toast.error("No speech detected. Try speaking closer to the microphone.");
-          startRecording();
-        }
-        return;
-      }
-
       // The mic picked something up, but it never rose clearly above the
       // calibrated ambient noise floor for long enough to count as real
       // speech - almost certainly just background noise (fan, traffic, hum).
-      // Discard it instead of sending it to transcription, which can
+      // Discard it instead of finalizing the transcript, which can
       // otherwise hallucinate words out of non-speech audio.
       if (!speechConfirmedRef.current) {
         console.warn("No confirmed speech in this segment - discarding without transcribing.");
+        if (sttSession) { try { sttSession.connection.close(); } catch (e) { } }
+        scribeConnectionRef.current = null;
         setIsTranscribing(false);
         if (isAgentActiveRef.current) {
           startRecording();
@@ -1031,22 +1352,21 @@ function VoiceAssistantSidebarPanel() {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("audio_file", audioBlob, "audio.webm");
-
-      const res = await fetch("/demo/api/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to transcribe audio");
+      if (!sttSession) {
+        console.warn("No realtime STT connection available for this segment.");
+        setIsTranscribing(false);
+        if (isAgentActiveRef.current) {
+          toast.error("Couldn't reach the voice service. Please try again.");
+          startRecording();
+        }
+        return;
       }
 
+      const text = await finalizeRealtimeStt(sttSession);
+      scribeConnectionRef.current = null;
+
       if (!isAgentActiveRef.current) return;
-      const { text } = await res.json();
-      if (text && text.trim()) {
+      if (text) {
         setTextCommand(text);
 
         // A new task has been given - kill whatever the previous one was
@@ -1227,8 +1547,12 @@ function VoiceAssistantSidebarPanel() {
       await terminateWithThankYou(error.message || "Transcription/Recording error");
     } finally {
       setIsTranscribing(false);
-      if (activeRecorder && activeRecorder.stream) {
-        activeRecorder.stream.getTracks().forEach(t => t.stop());
+      // currentMicStreamRef was already stopped/cleared before the try block
+      // above ran - only the STT connection can still legitimately be open
+      // here (e.g. if an error was thrown before finalizeRealtimeStt cleared it).
+      if (scribeConnectionRef.current) {
+        try { scribeConnectionRef.current.connection.close(); } catch (e) { }
+        scribeConnectionRef.current = null;
       }
     }
   }
@@ -1241,11 +1565,16 @@ function VoiceAssistantSidebarPanel() {
   };
 
   const handleToggleRecording = async () => {
+    // Starting or stopping the whole agent always begins/ends in a normal,
+    // unpaused state - stale pause state shouldn't carry over into a new session.
+    isListeningPausedRef.current = false;
+    setIsListeningPaused(false);
+
     if (isAgentActive) {
       setIsAgentActive(false);
       isAgentActiveRef.current = false;
 
-      // Stop the media recorder immediately and cleanup without processing a final response
+      // Stop recording immediately and cleanup without processing a final response
       cleanupVad();
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
@@ -1254,19 +1583,12 @@ function VoiceAssistantSidebarPanel() {
       setIsRecording(false);
       setIsTranscribing(false);
 
-      if (mediaRecorder) {
-        if (mediaRecorder.state !== "inactive") {
-          try {
-            mediaRecorder.stop();
-          } catch (e) {
-            console.error("Error stopping recorder on toggle:", e);
-          }
-        }
-        if (mediaRecorder.stream) {
-          mediaRecorder.stream.getTracks().forEach((t) => t.stop());
-        }
-        setMediaRecorder(null);
+      if (currentMicStreamRef.current) {
+        try { currentMicStreamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { }
+        currentMicStreamRef.current = null;
       }
+      cleanupScribeConnection();
+      cleanupPrewarmedStt();
 
       // Abort any ongoing chat API call
       if (chatAbortControllerRef.current) {
@@ -1355,11 +1677,45 @@ function VoiceAssistantSidebarPanel() {
     }
   };
 
-  const orbState: "listening" | "thinking" | "speaking" = isTranscribing
-    ? "thinking"
-    : activeAudio
-      ? "speaking"
-      : "listening";
+  // Clicking the orb toggles whether it's allowed to listen. Pausing while
+  // actively recording abandons that recording outright - it's a mute, not
+  // a "submit what I've said so far."
+  const handleOrbClick = () => {
+    if (!isAgentActiveRef.current) return;
+
+    const next = !isListeningPausedRef.current;
+    isListeningPausedRef.current = next;
+    setIsListeningPaused(next);
+
+    if (next) {
+      if (isRecording) {
+        cleanupVad();
+        if (recordingTimeoutRef.current) {
+          clearTimeout(recordingTimeoutRef.current);
+          recordingTimeoutRef.current = null;
+        }
+        if (currentMicStreamRef.current) {
+          try { currentMicStreamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { }
+          currentMicStreamRef.current = null;
+        }
+        cleanupScribeConnection();
+        setIsRecording(false);
+      }
+    } else if (!isTranscribing && !activeAudio) {
+      // Resuming: start listening right away, unless something else is
+      // already actively happening (thinking/speaking) - the normal flow
+      // will pick it up once that finishes, now that the pause is cleared.
+      startRecording();
+    }
+  };
+
+  const orbState: "listening" | "thinking" | "speaking" | "paused" = isListeningPaused
+    ? "paused"
+    : isTranscribing
+      ? "thinking"
+      : activeAudio
+        ? "speaking"
+        : "listening";
 
   return (
     <div className="flex-1 flex flex-col p-6 overflow-y-auto select-none bg-white custom-scrollbar">
@@ -1408,14 +1764,52 @@ function VoiceAssistantSidebarPanel() {
           actual conversation partner rather than a static icon. */}
       {isAgentActive && (
         <div className="flex flex-col items-center gap-1.5 pb-4">
-          <div
-            ref={orbElRef}
-            className={`voice-orb ${orbState === "thinking" ? "voice-orb--thinking" : ""} rounded-full`}
-            style={{ borderRadius: "50%", overflow: "hidden", clipPath: "circle(50% at 50% 50%)" }}
-          />
+          <div className="relative">
+            <div
+              ref={orbElRef}
+              onClick={handleOrbClick}
+              role="button"
+              tabIndex={0}
+              aria-label={orbState === "paused" ? "Resume listening" : "Pause listening"}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleOrbClick();
+                }
+              }}
+              className={`voice-orb ${orbState === "thinking" ? "voice-orb--thinking" : ""} ${orbState === "paused" ? "voice-orb--paused" : ""} rounded-full cursor-pointer`}
+              style={{ borderRadius: "50%", overflow: "hidden", clipPath: "circle(50% at 50% 50%)" }}
+            />
+            {/* Pops up only while the assistant is actually speaking - lets
+                you cut it off with a tap instead of needing to talk over it. */}
+            {orbState === "speaking" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  manualInterruptRef.current?.();
+                }}
+                className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center text-[var(--theme-color1,#4967a9)] hover:bg-gray-50 active:scale-90 transition-transform cursor-pointer"
+                aria-label="Stop speaking and start listening"
+                title="Stop speaking"
+              >
+                <Mic size={12} />
+              </button>
+            )}
+          </div>
           <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-            {orbState === "thinking" ? "Thinking..." : orbState === "speaking" ? "Talking..." : "Listening..."}
+            {orbState === "paused"
+              ? "Paused - tap to resume"
+              : orbState === "thinking"
+                ? "Thinking..."
+                : orbState === "speaking"
+                  ? "Talking..."
+                  : "Listening... (tap to pause)"}
           </span>
+          {isRecording && livePartialText && (
+            <span className="text-[11px] text-gray-400 italic max-w-[220px] text-center line-clamp-2">
+              &quot;{livePartialText}&quot;
+            </span>
+          )}
         </div>
       )}
 
@@ -1514,6 +1908,10 @@ function VoiceAssistantSidebarPanel() {
         .voice-orb--thinking {
           animation: voiceOrbHue 2.4s linear infinite;
         }
+        .voice-orb--paused {
+          filter: grayscale(0.85) brightness(0.9);
+          opacity: 0.6;
+        }
         @keyframes voiceOrbSwirl {
           0% {
             transform: rotate(0deg) scale(1);
@@ -1539,6 +1937,24 @@ export default function RightSidebar() {
   const pathname = usePathname();
   const isHomepage = pathname === "/";
   const [showFloatingPanel, setShowFloatingPanel] = useState(false);
+
+  // Which layout (floating FAB vs fixed sidebar) is shown was previously
+  // decided with CSS breakpoint classes alone (lg:hidden / hidden lg:block),
+  // which means BOTH branches - each with their own <VoiceAssistantSidebarPanel />
+  // - were mounted simultaneously; CSS only hid one visually. Since that panel
+  // owns its own mic stream, VAD loop, and realtime STT connection, having two
+  // live instances meant two independent "agents" both reacting to the same
+  // conversation. Deciding the breakpoint in JS instead ensures only one
+  // branch - and therefore only one panel instance - is ever mounted at a time.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)"); // Tailwind's `lg` breakpoint
+    const update = () => setIsDesktop(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
+  const showAsideLayout = isDesktop && !isHomepage;
 
   const isAgentActive = useAgentStore((s) => s.isAgentActive);
   const items = useCartStore((s) => s.items);
@@ -1616,17 +2032,10 @@ export default function RightSidebar() {
 
   return (
     <>
-      {/* On Mobile Screens (lg:hidden): Always show Voice Assistant FAB on all pages */}
-      <div className="lg:hidden">
-        {renderFloatingVoiceAgent()}
-      </div>
-
-      {/* On Desktop Screens (lg:block): Homepage shows FAB, inner pages show Sidebar */}
-      {isHomepage ? (
-        <div className="hidden lg:block">
-          {renderFloatingVoiceAgent()}
-        </div>
-      ) : (
+      {/* Exactly one of these renders at a time (decided in JS via
+          showAsideLayout above), never both - see the comment on isDesktop
+          for why that matters here specifically. */}
+      {showAsideLayout ? (
     <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[320px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-xl overflow-hidden font-sans">
       {/* TOP HALF: CART */}
       <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
@@ -1790,6 +2199,8 @@ export default function RightSidebar() {
         }
       `}</style>
         </aside>
+      ) : (
+        renderFloatingVoiceAgent()
       )}
     </>
   );
