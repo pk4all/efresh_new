@@ -35,43 +35,61 @@ function AccountContent() {
   const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("Please login to access your account");
-      router.push("/login");
-    } else {
-      const fetchProfile = async () => {
-        try {
-          const data = await fetchUserProfile();
-          const profileData = data.data || data;
-          
-          let formattedDob = "";
-          if (profileData.dob) {
-            try {
-              formattedDob = new Date(profileData.dob).toISOString().split("T")[0];
-            } catch (e) {
-              formattedDob = profileData.dob;
-            }
-          }
+    const checkAuthAndFetch = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please login to access your account");
+        router.push("/");
+        setTimeout(() => {
+          window.dispatchEvent(new Event("open-login-modal"));
+        }, 100);
+        return;
+      }
 
-          setProfile({
-            name: profileData.name || "User",
-            email: profileData.email || "",
-            phone: profileData.contact || "",
-            address: profileData.suburb || "",
-            gender: profileData.gender || "",
-            dob: formattedDob,
-          });
-          await fetchAddresses();
-        } catch (err: any) {
-          console.error("Failed to fetch profile:", err);
-          handleAuthError(err.message);
-        } finally {
-          setAuthChecked(true);
+      try {
+        const data = await fetchUserProfile();
+        const profileData = data.data || data;
+        
+        let formattedDob = "";
+        if (profileData.dob) {
+          try {
+            formattedDob = new Date(profileData.dob).toISOString().split("T")[0];
+          } catch (e) {
+            formattedDob = profileData.dob;
+          }
         }
-      };
-      fetchProfile();
-    }
+
+        setProfile({
+          name: profileData.name || "User",
+          email: profileData.email || "",
+          phone: profileData.contact || "",
+          address: profileData.suburb || "",
+          gender: profileData.gender || "",
+          dob: formattedDob,
+        });
+        await fetchAddresses();
+      } catch (err: any) {
+        console.error("Failed to fetch profile:", err);
+        handleAuthError(err.message);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    checkAuthAndFetch();
+
+    const handleStorageChange = () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/");
+        window.dispatchEvent(new Event("open-login-modal"));
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [router]);
 
 

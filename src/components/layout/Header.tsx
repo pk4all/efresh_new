@@ -133,7 +133,7 @@ export default function Header() {
             {/* Desktop User Account */}
             <div className="relative hidden sm:block" ref={userRef}>
               <button
-                className="flex items-center gap-2 text-gray-700 hover:text-[var(--theme-color1)] transition-colors p-1 cursor-pointer"
+                className="flex items-center gap-2 !text-gray-700 hover:text-[var(--theme-color1)] transition-colors p-1 cursor-pointer"
                 onClick={() => setShowUserMenu(!showUserMenu)}
               >
                 <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
@@ -154,7 +154,7 @@ export default function Header() {
                     <Link
                       key={item.label}
                       href={item.href}
-                      className="block px-4 py-2 text-sm hover:bg-gray-50 transition-colors text-gray-700 hover:text-[var(--theme-color1)]"
+                      className="block px-4 py-2 text-sm hover:bg-gray-50 transition-colors !text-gray-700 hover:text-[var(--theme-color1)]"
                       onClick={() => setShowUserMenu(false)}
                     >
                       {item.label}
@@ -168,7 +168,7 @@ export default function Header() {
                           setAuthModalOpen(true);
                           setShowUserMenu(false);
                         }}
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer"
+                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors !text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer"
                       >
                         Login
                       </button>
@@ -178,7 +178,7 @@ export default function Header() {
                           setAuthModalOpen(true);
                           setShowUserMenu(false);
                         }}
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer"
+                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors !text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer"
                       >
                         Register
                       </button>
@@ -208,7 +208,7 @@ export default function Header() {
 
             {/* Mobile Hamburger Menu Button */}
             <button
-              className="md:hidden flex items-center justify-center w-10 h-10 text-gray-700 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+              className="md:hidden flex items-center justify-center w-10 h-10 !text-gray-700 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -217,7 +217,7 @@ export default function Header() {
             {/* Mobile Cart Button (Right side of Menu button) */}
             <button
               onClick={openCart}
-              className="md:hidden relative flex items-center justify-center w-10 h-10 text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+              className="md:hidden relative flex items-center justify-center w-10 h-10 !text-gray-700 hover:text-[var(--theme-color1)] cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
               aria-label="Open Cart"
             >
               <ShoppingCart size={22} className="stroke-[2] text-[var(--theme-color1)]" />
@@ -246,7 +246,7 @@ export default function Header() {
                       setAuthModalOpen(true);
                       setMobileMenuOpen(false);
                     }}
-                    className="py-2.5 px-3 text-sm font-semibold border-b text-left w-full cursor-pointer flex items-center justify-between text-gray-800 hover:text-[var(--theme-color1)] transition-colors"
+                    className="py-2.5 px-3 text-sm font-semibold border-b text-left w-full cursor-pointer flex items-center justify-between !text-gray-800 hover:text-[var(--theme-color1)] transition-colors"
                     style={{ borderColor: "var(--color-border)" }}
                   >
                     <span>Login</span>
@@ -258,7 +258,7 @@ export default function Header() {
                       setAuthModalOpen(true);
                       setMobileMenuOpen(false);
                     }}
-                    className="py-2.5 px-3 text-sm font-semibold text-left w-full cursor-pointer flex items-center justify-between text-gray-800 hover:text-[var(--theme-color1)] transition-colors"
+                    className="py-2.5 px-3 text-sm font-semibold text-left w-full cursor-pointer flex items-center justify-between !text-gray-800 hover:text-[var(--theme-color1)] transition-colors"
                   >
                     <span>Register</span>
                     <ChevronRight size={16} className="text-gray-400" />
@@ -274,7 +274,7 @@ export default function Header() {
                     <Link
                       key={item.label}
                       href={item.href}
-                      className="py-2.5 px-3 text-sm font-semibold border-b flex items-center justify-between text-gray-800 hover:text-[var(--theme-color1)] transition-colors"
+                      className="py-2.5 px-3 text-sm font-semibold border-b flex items-center justify-between !text-gray-800 hover:text-[var(--theme-color1)] transition-colors"
                       style={{ borderColor: "var(--color-border)" }}
                       onClick={() => setMobileMenuOpen(false)}
                     >
