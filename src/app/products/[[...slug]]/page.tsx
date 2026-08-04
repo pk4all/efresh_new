@@ -400,7 +400,7 @@ function ShopContent() {
             setPage(1);
             const catSlug = categoryToSlug(cat.name);
             if (catSlug) {
-              window.history.pushState(null, "", `/products/${catSlug}`);
+              window.history.pushState(null, "", `/demo/products/${catSlug}`);
             }
           }}
         />
@@ -420,9 +420,9 @@ function ShopContent() {
                 const catSlug = categoryToSlug(activeCat);
                 if (subName) {
                   const subSlug = categoryToSlug(subName);
-                  window.history.pushState(null, "", `/products/${catSlug}/${subSlug}`);
+                  window.history.pushState(null, "", `/demo/products/${catSlug}/${subSlug}`);
                 } else {
-                  window.history.pushState(null, "", `/products/${catSlug}`);
+                  window.history.pushState(null, "", `/demo/products/${catSlug}`);
                 }
               }
             }}
