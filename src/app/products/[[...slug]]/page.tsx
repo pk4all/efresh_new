@@ -4,6 +4,8 @@ import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import ProductCard from "@/components/product/ProductCard";
+import CategorySidebar from "@/components/layout/CategorySidebar";
+import SubcategoryBar from "@/components/layout/SubcategoryBar";
 import { fetchCategories, fetchProducts, fetchSubCategories, mapApiProductToProduct, getPublicAssetUrl } from "@/utils/api";
 import { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
@@ -385,120 +387,46 @@ function ShopContent() {
 
       {/* Main Flex Layout: Left Side Fixed Categories + Right Product Grid Section */}
       <div className="flex gap-2 sm:gap-4 md:gap-5 items-start w-full max-w-full overflow-hidden pt-0">
-        {/* Left Side Fixed Category Sidebar */}
-        <aside className="w-[90px] sm:w-[115px] md:w-[130px] flex-shrink-0 sticky max-h-[calc(100vh-100px)] overflow-y-auto category-sidebar-scrollbar bg-white border-r border-gray-200 pr-1.5 pt-1.5 pb-2 space-y-1.5 self-start select-none">
-          {/* Categories List */}
-          {categories.map((cat) => {
-            const isCatSelected = selectedCategories.length > 0
-              ? selectedCategories[0].toLowerCase() === cat.name.toLowerCase()
-              : (categorySlug && categoryToSlug(categorySlug) === categoryToSlug(cat.name)) ||
-              (initialCategory && initialCategory.toLowerCase() === cat.name.toLowerCase());
-
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setSelectedCategories([cat.name]);
-                  setActiveSubcategory("");
-                  setPage(1);
-                  const catSlug = categoryToSlug(cat.name);
-                  if (catSlug) {
-                    router.push(`/products/${catSlug}`, { scroll: false });
-                  }
-                }}
-                className={`w-full py-1.5 px-1 flex flex-col items-center justify-center text-center relative group transition-all cursor-pointer rounded-xl ${isCatSelected ? "bg-emerald-50/80 text-gray-900" : "hover:bg-gray-50 text-gray-600"
-                  }`}
-              >
-                {/* Active Vertical Green Indicator Bar on Left Side */}
-                {isCatSelected && (
-                  <div className="absolute left-0 top-1 bottom-1 w-1 bg-[var(--theme-color1)] rounded-r-full" />
-                )}
-
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center p-1.5 mb-1 transition-all overflow-hidden border ${isCatSelected ? "bg-white border-emerald-300 shadow-2xs scale-105" : "bg-gray-50 border-gray-100 group-hover:border-gray-200"
-                  }`}>
-                  <img
-                    src={getCategoryThumbnail(cat)}
-                    alt={cat.name}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
-                    }}
-                  />
-                </div>
-
-                <span className={`text-[11px] leading-tight px-0.5 line-clamp-2 ${isCatSelected ? "font-extrabold text-gray-900" : "font-medium text-gray-600"
-                  }`}>
-                  {cat.name}
-                </span>
-              </button>
-            );
-          })}
-        </aside>
+        <CategorySidebar 
+          categories={categories}
+          selectedCategoryName={
+            selectedCategories.length > 0
+              ? selectedCategories[0]
+              : (categorySlug ? categorySlug.replace(/-/g, " ") : initialCategory || undefined)
+          }
+          onSelectCategory={(cat) => {
+            setSelectedCategories([cat.name]);
+            setActiveSubcategory("");
+            setPage(1);
+            const catSlug = categoryToSlug(cat.name);
+            if (catSlug) {
+              window.history.pushState(null, "", `/products/${catSlug}`);
+            }
+          }}
+        />
 
         {/* Right Content Area: Subcategory Tags + Product Grid */}
         <div className="flex-1 min-w-0 max-w-full !overflow-hidden pt-0">
           {/* Subcategories Multi-Row Tag Bar (Wraps cleanly without scrollbars) */}
 
-          {subCategories.length > 0 && (
-            <div className="w-subcategory overflow-x-auto -mx-4 px-4 mb-3">
-              <div
-
-                className="flex items-center gap-2 flex-nowrap select-none w-max"
-              >
-                {/* "All" Tag */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveSubcategory("");
-                    setPage(1);
-                    const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
-                    if (activeCat) {
-                      const catSlug = categoryToSlug(activeCat);
-                      router.push(`/products/${catSlug}`, { scroll: false });
-                    }
-                  }}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-xs text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${!activeSubcategory
-                    ? "bg-[var(--theme-color1)] text-white font-bold shadow-2xs"
-                    : "bg-gray-100/90 text-gray-700 hover:bg-gray-200"
-                    }`}
-                >
-                  All
-                </button>
-
-                {/* Subcategory Pills */}
-                {subCategories.map((sub: any) => {
-                  const subName = sub.name || sub.subcat_name || "";
-                  const isSubActive = activeSubcategory.toLowerCase() === subName.toLowerCase() ||
-                    categoryToSlug(activeSubcategory) === categoryToSlug(subName);
-
-                  return (
-                    <button
-                      key={sub.id || sub.subcategory_id}
-                      type="button"
-                      onClick={() => {
-                        setActiveSubcategory(subName);
-                        setPage(1);
-                        const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
-                        if (activeCat) {
-                          const catSlug = categoryToSlug(activeCat);
-                          const subSlug = categoryToSlug(subName);
-                          router.push(`/products/${catSlug}/${subSlug}`, { scroll: false });
-                        }
-                      }}
-                      className={`shrink-0 px-3.5 py-1.5 rounded-xs text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${isSubActive
-                        ? "bg-[var(--theme-color1)] text-white font-bold shadow-2xs"
-                        : "bg-gray-100/90 text-gray-700 hover:bg-gray-200"
-                        }`}
-                    >
-                      {subName}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <SubcategoryBar 
+            subCategories={subCategories}
+            activeSubcategory={activeSubcategory}
+            onSelectSubcategory={(subName) => {
+              setActiveSubcategory(subName);
+              setPage(1);
+              const activeCat = selectedCategories[0] || (categorySlug ? decodeURIComponent(categorySlug) : "");
+              if (activeCat) {
+                const catSlug = categoryToSlug(activeCat);
+                if (subName) {
+                  const subSlug = categoryToSlug(subName);
+                  window.history.pushState(null, "", `/products/${catSlug}/${subSlug}`);
+                } else {
+                  window.history.pushState(null, "", `/products/${catSlug}`);
+                }
+              }
+            }}
+          />
 
           {/* Product Grid */}
           {productsLoading ? (

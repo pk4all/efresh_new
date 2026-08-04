@@ -43,6 +43,8 @@ export async function getVendorByPincode(pincode: string) {
   return response.json();
 }
 
+const categoriesCache: Record<string, any> = {};
+
 /**
  * Fetches categories from the storefront API.
  */
@@ -57,12 +59,21 @@ export async function fetchCategories(params: GetCategoriesParams = {}) {
 
   const url = `${cleanBase}/categories?${queryParams.toString()}`;
 
+  if (categoriesCache[url]) {
+    return categoriesCache[url];
+  }
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch categories: ${response.statusText}`);
   }
-  return response.json();
+  
+  const data = await response.json();
+  categoriesCache[url] = data;
+  return data;
 }
+
+const subcategoriesCache: Record<string, any> = {};
 
 /**
  * Fetches subcategories from the storefront API.
@@ -82,12 +93,18 @@ export async function fetchSubCategories(params: GetSubCategoriesParams = {}) {
 
   const url = `${cleanBase}/subcategories?${queryParams.toString()}`;
 
+  if (subcategoriesCache[url]) {
+    return subcategoriesCache[url];
+  }
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch subcategories: ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  subcategoriesCache[url] = data;
+  return data;
 }
 
 export interface GetProductsParams {
