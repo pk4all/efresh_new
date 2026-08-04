@@ -515,6 +515,7 @@ function ShopContent() {
                 width={130}
                 height={130}
                 className="mb-4 object-contain"
+              // style={{ width: "auto", height: "auto" }}
               />
               <p className="font-semibold text-gray-500 text-sm">No products match your filters.</p>
             </div>

@@ -38,10 +38,10 @@ export default function ProductCard({ product }: Props) {
     const success = addItem(product);
     if (success) {
       setAdded(true);
-      toast.success(`${product.name} added to cart!`, {
-        description: `$${product.price.toFixed(2)} × 1`,
-        duration: 2500,
-      });
+      // toast.success(`${product.name} added to cart!`, {
+      //   description: `$${product.price.toFixed(2)} × 1`,
+      //   duration: 2500,
+      // });
       setTimeout(() => setAdded(false), 1600);
     }
   };
@@ -60,10 +60,7 @@ export default function ProductCard({ product }: Props) {
 
   return (
     <>
-      <div
-        className="card group relative flex flex-col border border-gray-200"
-        style={{ boxShadow: "var(--shadow-card)" }}
-      >
+      <div className="card group relative flex flex-col border border-gray-200">
         {/* Image */}
         <Link href={getCategoryUrl(product)} className="relative block overflow-hidden">
           <div className="relative w-full aspect-square bg-gray-50/60 max-h-[140px] sm:max-h-[180px]">
@@ -189,7 +186,7 @@ export default function ProductCard({ product }: Props) {
                     onClick={(e) => {
                       e.preventDefault();
                       updateQuantity(product.id, quantity - 1);
-                      toast.success(`Updated ${product.name} quantity to ${quantity - 1}`);
+                      //toast.success(`Updated ${product.name} quantity to ${quantity - 1}`);
                     }}
                     className="w-6 h-6 flex items-center justify-center bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all font-bold text-xs shadow-2xs cursor-pointer active:scale-90"
                     title="Decrease quantity"
@@ -203,7 +200,7 @@ export default function ProductCard({ product }: Props) {
                     onClick={(e) => {
                       e.preventDefault();
                       updateQuantity(product.id, quantity + 1);
-                      toast.success(`Updated ${product.name} quantity to ${quantity + 1}`);
+                      // toast.success(`Updated ${product.name} quantity to ${quantity + 1}`);
                     }}
                     className="w-6 h-6 flex items-center justify-center bg-white text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-bold text-xs shadow-2xs cursor-pointer active:scale-90"
                     title="Increase quantity"

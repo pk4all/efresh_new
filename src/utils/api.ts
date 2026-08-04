@@ -200,21 +200,25 @@ export function mapApiProductToProduct(apiItem: any): any {
   };
 
   const price = Array.isArray(apiItem.markups) ? apiItem.markups.find((elm: any) => elm.customer_type == 1)?.cost_after_tax : apiItem.product_price;
-  console.log(price, 'price');
+  //console.log(price, 'price');
   const cost = parseFloat(price) || 0;
   const image = apiItem.product_image && apiItem.product_image !== "NULL"
     ? apiItem.product_image
     : "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop";
   const markupUnit = Array.isArray(apiItem.markups) ? apiItem.markups.find((elm: any) => elm.customer_type == 1)?.unit_name : "";
   const unit_type = markupUnit || apiItem.unit_type || apiItem.product_type || apiItem.unit || apiItem.type || "";
+  const markupUnitId = Array.isArray(apiItem.markups) ? apiItem.markups.find((elm: any) => elm.customer_type == 1)?.unit_type : undefined;
+  const unit_type_id = markupUnitId ?? apiItem.unit_type_id ?? apiItem.unit_id ?? null;
+
   return {
-    id: String(apiItem.id),
+    id: unit_type_id ? `${apiItem.id}-${unit_type_id}` : String(apiItem.id),
     name: apiItem.product_name || apiItem.product_alt_name || "Unknown Product",
     slug: (apiItem.product_name || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + apiItem.id,
     category: apiItem.category_name || catMap[String(apiItem.cat_id)] || "Groceries",
     price: cost,
     product_type: unit_type,
     unit_type: unit_type,
+    unit_type_id: unit_type_id,
     // originalPrice: cost > 0 ? cost * 1.2 : 0,
     originalPrice: cost,
     image: image,

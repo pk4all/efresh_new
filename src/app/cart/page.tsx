@@ -43,6 +43,7 @@ export default function CartPage() {
           width={150}
           height={150}
           className="mx-auto mb-4 object-contain"
+        // style={{ width: "auto", height: "auto" }}
         />
         <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--color-dark)" }}>
           Your cart is empty

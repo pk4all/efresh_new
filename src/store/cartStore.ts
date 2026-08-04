@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartItem, Product } from "@/types";
 import { toast } from "sonner";
+import { handleAuthError } from "@/utils/auth";
 
 const getAuthHeaders = () => {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -39,6 +40,14 @@ interface CartStore {
 // voice agent's per-turn action handler) - without this, each one fires its
 // own /cart request instead of sharing the one already in flight.
 let cartSyncInFlight: Promise<void> | null = null;
+let syncDebounceTimer: NodeJS.Timeout | null = null;
+
+const triggerDebouncedSync = (delayMs = 300) => {
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    useCartStore.getState().syncCartWithDb();
+  }, delayMs);
+};
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -59,12 +68,17 @@ export const useCartStore = create<CartStore>()(
           try {
             const cleanBase = getBaseUrl();
             const res = await fetch(`${cleanBase}/cart`, { headers });
+            if (res.status === 401 || res.status === 403) {
+              const body = await res.json().catch(() => ({}));
+              handleAuthError(body.message || body.detail || "expired token");
+              return;
+            }
             if (res.ok) {
               const body = await res.json();
               const cartOut = body.data || body;
               const mappedItems = (cartOut.items || []).map((item: any) => ({
                 product: {
-                  id: String(item.product_id),
+                  id: item.unit_type_id ? `${item.product_id}-${item.unit_type_id}` : String(item.product_id),
                   name: item.product_name || "Unknown Product",
                   price: parseFloat(item.product_price) || 0,
                   originalPrice: parseFloat(item.product_price) || 0,
@@ -73,6 +87,7 @@ export const useCartStore = create<CartStore>()(
                   rating: 5,
                   reviews: 0,
                   unit: item.unit_name || "1 unit",
+                  unit_type_id: item.unit_type_id ?? null,
                   stock: 99,
                 },
                 quantity: item.qty || 1,
@@ -114,9 +129,18 @@ export const useCartStore = create<CartStore>()(
             body: JSON.stringify({
               product_id: parseInt(product.id),
               qty: quantity,
-              unit_type_id: null,
+              unit_type_id: product.id.includes('-') ? parseInt(product.id.split('-')[1]) : (product.unit_type_id ? parseInt(String(product.unit_type_id)) : null),
             }),
-          }).then(() => get().syncCartWithDb());
+          })
+            .then(async (res) => {
+              if (res.status === 401 || res.status === 403) {
+                const body = await res.json().catch(() => ({}));
+                handleAuthError(body.message || body.detail || "expired token");
+                return;
+              }
+              triggerDebouncedSync(300);
+            })
+            .catch((err) => console.error("addItem error:", err));
         }
 
         // Local fallback update
@@ -141,10 +165,24 @@ export const useCartStore = create<CartStore>()(
         const headers = getAuthHeaders();
         if (headers) {
           const cleanBase = getBaseUrl();
-          fetch(`${cleanBase}/cart/items/${productId}`, {
+          const pId = parseInt(productId);
+          const unitTypeId = productId.includes('-') ? parseInt(productId.split('-')[1]) : null;
+          fetch(`${cleanBase}/cart/items/${pId}?unit_type_id=${unitTypeId}`, {
             method: "DELETE",
-            headers,
-          }).then(() => get().syncCartWithDb());
+            headers: {
+              ...headers,
+              "Content-Type": "application/json",
+            }
+          })
+            .then(async (res) => {
+              if (res.status === 401 || res.status === 403) {
+                const body = await res.json().catch(() => ({}));
+                handleAuthError(body.message || body.detail || "expired token");
+                return;
+              }
+              triggerDebouncedSync(300);
+            })
+            .catch((err) => console.error("removeItem error:", err));
         }
 
         // Local fallback update
@@ -162,7 +200,9 @@ export const useCartStore = create<CartStore>()(
         const headers = getAuthHeaders();
         if (headers) {
           const cleanBase = getBaseUrl();
-          fetch(`${cleanBase}/cart/items/${productId}`, {
+          const pId = parseInt(productId);
+          const unitTypeId = productId.includes('-') ? parseInt(productId.split('-')[1]) : null;
+          fetch(`${cleanBase}/cart/items/${pId}?unit_type_id=${unitTypeId}`, {
             method: "PUT",
             headers: {
               ...headers,
@@ -171,7 +211,16 @@ export const useCartStore = create<CartStore>()(
             body: JSON.stringify({
               qty: quantity,
             }),
-          }).then(() => get().syncCartWithDb());
+          })
+            .then(async (res) => {
+              if (res.status === 401 || res.status === 403) {
+                const body = await res.json().catch(() => ({}));
+                handleAuthError(body.message || body.detail || "expired token");
+                return;
+              }
+              triggerDebouncedSync(300);
+            })
+            .catch((err) => console.error("updateQuantity error:", err));
         }
 
         // Local fallback update
@@ -189,7 +238,16 @@ export const useCartStore = create<CartStore>()(
           fetch(`${cleanBase}/cart`, {
             method: "DELETE",
             headers,
-          }).then(() => get().syncCartWithDb());
+          })
+            .then(async (res) => {
+              if (res.status === 401 || res.status === 403) {
+                const body = await res.json().catch(() => ({}));
+                handleAuthError(body.message || body.detail || "expired token");
+                return;
+              }
+              triggerDebouncedSync(300);
+            })
+            .catch((err) => console.error("clearCart error:", err));
         }
 
         set({ items: [], couponCode: null });

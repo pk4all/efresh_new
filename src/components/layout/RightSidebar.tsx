@@ -1048,72 +1048,6 @@ function VoiceAssistantSidebarPanel() {
     return () => window.removeEventListener("storage", handleAuthChange);
   }, []);
 
-  const executeCommand = async (commandText: string) => {
-    if (!commandText.trim()) return;
-    const command = commandText.trim().toLowerCase();
-
-    if (command.includes("go to home") || command.includes("go home") || command === "home") {
-      router.push("/");
-      toast.success("Navigating to Home");
-    } else if (command.includes("go to shop") || command.includes("shop page") || command === "shop") {
-      router.push("/products");
-      toast.success("Navigating to Shop");
-    } else if (command.includes("go to cart") || command.includes("view cart") || command.includes("open cart") || command === "cart") {
-      router.push("/cart");
-      toast.success("Opened Cart");
-    } else if (command.includes("go to checkout") || command === "checkout") {
-      router.push("/checkout");
-      toast.success("Navigating to Checkout");
-    } else if (command.includes("go to wishlist") || command === "wishlist") {
-      router.push("/wishlist");
-      toast.success("Navigating to Wishlist");
-    } else if (command.includes("go to account") || command === "account") {
-      router.push("/account");
-      toast.success("Navigating to Account");
-    } else if (command.includes("clear cart") || command.includes("empty cart")) {
-      clearCartStore();
-      toast.info("Cleared Cart");
-    } else if (command.includes("scroll down")) {
-      window.scrollBy({ top: window.innerHeight * 0.6, behavior: "smooth" });
-    } else if (command.includes("scroll up")) {
-      window.scrollBy({ top: -window.innerHeight * 0.6, behavior: "smooth" });
-    } else if (command.startsWith("search for ") || command.startsWith("find ")) {
-      const q = command.replace(/^(search for|find)\s+/, "");
-      router.push(`/products?q=${encodeURIComponent(q)}`);
-      toast.success(`Searching for "${q}"`);
-    } else if (command.startsWith("add ") && (command.includes(" to cart") || command.includes(" to the cart"))) {
-      const match = command.match(/^add\s+(.+?)\s+to\s+(?:the\s+)?cart$/);
-      if (match && match[1]) {
-        const searchName = match[1].toLowerCase().trim();
-        const liveProducts = useCartStore.getState().products;
-        let matchedProduct = liveProducts.find((p) => p.name.toLowerCase().includes(searchName));
-
-        if (!matchedProduct) {
-          try {
-            const searchRes = await fetchProductsFromAgent({ search: searchName, limit: 1 });
-            if (searchRes && searchRes.data && searchRes.data.length > 0) {
-              matchedProduct = mapApiProductToProduct(searchRes.data[0]);
-            }
-          } catch (e: any) {
-            console.error("Failed to fetch product from agent search", e);
-            await terminateWithThankYou(e.message || "fetchProductsFromAgent error");
-            return;
-          }
-        }
-
-        if (matchedProduct) {
-          const success = addItem(matchedProduct, 1);
-          if (success) {
-            toast.success(`Added ${matchedProduct.name} to Cart`);
-          }
-        } else {
-          toast.error(`Product "${match[1]}" not found`);
-        }
-      }
-    } else {
-      // toast.success(`Command not recognized: "${command}"`);
-    }
-  };
 
   // no need this function exicute [End] //
 
@@ -1540,8 +1474,6 @@ function VoiceAssistantSidebarPanel() {
         // start talking over the assistant to cut it off, just like ChatGPT voice.
         await playTtsAudio(stripMarkdown(replyText), createTurnFinishedHandler(myTaskId));
 
-        // Also check if text has matching shop commands to trigger navigation or action
-        // await executeCommand(text);
 
       } else {
         toast.error("No speech detected. Try speaking closer to the microphone.");
@@ -1566,12 +1498,6 @@ function VoiceAssistantSidebarPanel() {
     }
   }
 
-  const handleTextSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!textCommand.trim()) return;
-    executeCommand(textCommand);
-    setTextCommand("");
-  };
 
   const handleToggleRecording = async () => {
     // Starting or stopping the whole agent always begins/ends in a normal,
@@ -1836,25 +1762,6 @@ function VoiceAssistantSidebarPanel() {
         </button>
       </div>
 
-      {/* Command input */}
-      <form onSubmit={handleTextSubmit} className="flex gap-2 items-center bg-white p-1 border border-gray-200 rounded-xl shadow-sm mb-5 focus-within:border-[var(--theme-color1)] transition-all" style={{ display: 'none' }}>
-        <input
-          type="text"
-          value={textCommand}
-          onChange={(e) => setTextCommand(e.target.value)}
-          placeholder="Type command (e.g. 'go to shop')"
-          className="flex-1 px-3 py-2 text-xs text-gray-700 bg-white outline-none rounded-lg"
-        />
-        <button
-          type="submit"
-          className="p-2 text-white rounded-full transition-colors cursor-pointer flex items-center justify-center shadow-md shadow-[var(--theme-color1)]/20"
-          style={{ background: "var(--theme-color2)", color: "#ffffff" }}
-          title="Send Command"
-        >
-          <Send size={13} />
-        </button>
-      </form>
-
       {/* Guide */}
       <div className="flex-1 text-left" style={{ display: 'none' }}>
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1 mb-3">
@@ -2045,154 +1952,155 @@ export default function RightSidebar() {
           showAsideLayout above), never both - see the comment on isDesktop
           for why that matters here specifically. */}
       {showAsideLayout ? (
-    <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[320px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-xl overflow-hidden font-sans">
-      {/* TOP HALF: CART */}
-      <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
-        {/* Cart Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#eceff1] bg-white">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[var(--theme-color1)]/10 flex items-center justify-center text-[var(--theme-color1)]">
-              <ShoppingBag size={15} />
-            </div>
-            <div>
-              <h6 className="font-bold text-xs text-gray-800 tracking-wide">
-                Your Cart
-              </h6>
-              <p className="text-[9px] text-gray-400 font-medium">Manage your items</p>
-            </div>
-          </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--theme-color1)] text-white">
-            {items.reduce((s, i) => s + i.quantity, 0)}
-          </span>
-        </div>
-
-        {/* Cart items list */}
-        <div className="flex-1 overflow-y-auto px-3 py-1 bg-white custom-scrollbar">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-1.5 text-center py-4">
-              <Image
-                src={getPublicAssetUrl("/images/notfound.svg")}
-                alt="Your cart is empty"
-                width={70}
-                height={70}
-                className="object-contain mb-1"
-              />
-              <p className="font-bold text-gray-700 text-xs">Your cart is empty</p>
-              <p className="text-[11px] text-gray-400 max-w-[180px]">Add some fresh items to your cart to checkout!</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100 border-b border-gray-100">
-              {items.map((item) => (
-                <div
-                  key={item.product.id}
-                  className="flex items-center gap-2.5 py-2.5 px-1 bg-white hover:bg-gray-50/50 transition-colors"
-                >
-                  <div className="relative w-11 h-11 rounded-xs overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
-                    <Image
-                      src={item.product.image}
-                      alt={item.product.name}
-                      fill
-                      unoptimized
-                      className="object-contain p-1"
-                      sizes="44px"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col justify-between min-w-0 h-full py-0">
-                    <div className="flex items-start justify-between gap-1.5">
-                      <span className="text-xs font-bold !text-[#0c2646] truncate leading-snug" style={{ color: "#0c2646" }}>{item.product.name}</span>
-                      <button
-                        onClick={() => removeItem(item.product.id)}
-                        className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
-                        title="Remove item"
-                      >
-                        <Trash2 size={14} className="stroke-[1.75]" />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between gap-1.5 mt-1">
-                      <span className="text-xs font-bold text-[#0da487] flex items-baseline gap-0.5">
-                        ${(item.product.price * item.quantity).toFixed(2)}
-                        {(item.product.unit_type || item.product.product_type) && (
-                          <span className="text-[10px] font-normal text-[#5282b8] ml-0.5">
-                            / {item.product.unit_type || item.product.product_type}
-                          </span>
-                        )}
-                      </span>
-                      <div className="flex items-center border border-gray-200 rounded-xs bg-white px-1.5 py-0.5 text-xs">
-                        <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
-                        >
-                          –
-                        </button>
-                        <span className="font-bold text-[#0c2646] px-1.5 min-w-[14px] text-center select-none text-xs">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                          className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+        <aside className="hidden lg:flex fixed top-0 right-0 h-screen w-[320px] bg-white border-l border-[#eceff1] z-[60] flex-col shadow-xl overflow-hidden font-sans">
+          {/* TOP HALF: CART */}
+          <div className="h-1/2 flex flex-col border-b border-[#eceff1] overflow-hidden">
+            {/* Cart Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#eceff1] bg-white">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[var(--theme-color1)]/10 flex items-center justify-center text-[var(--theme-color1)]">
+                  <ShoppingBag size={15} />
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Cart Total Summary / Checkout Buttons */}
-        {items.length > 0 && (
-          <div className="p-3.5 bg-white border-t border-[#eceff1] space-y-2.5">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500 font-semibold">Total:</span>
-              <span className="text-base font-extrabold text-gray-900">
-                ${total.toFixed(2)}
+                <div>
+                  <h6 className="font-bold text-xs text-gray-800 tracking-wide">
+                    Your Cart
+                  </h6>
+                  <p className="text-[9px] text-gray-400 font-medium">Manage your items</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--theme-color1)] text-white">
+                {items.reduce((s, i) => s + i.quantity, 0)}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Link
-                href="/cart"
-                className="btn-outline flex-1 py-2 px-2 text-xs font-bold text-center"
-              >
-                <ShoppingBag size={13} />
-                <span>View Cart</span>
-              </Link>
-              <Link
-                href="/checkout"
-                className="btn-primary flex-1 py-2 px-2 text-xs font-bold text-center"
-              >
-                <span>Checkout</span>
-                <ChevronRight size={13} />
-              </Link>
+
+            {/* Cart items list */}
+            <div className="flex-1 overflow-y-auto px-3 py-1 bg-white custom-scrollbar">
+              {items.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-1.5 text-center py-4">
+                  <Image
+                    src={getPublicAssetUrl("/images/notfound.svg")}
+                    alt="Your cart is empty"
+                    width={70}
+                    height={70}
+                    className="object-contain mb-1"
+                  // style={{ width: "auto", height: "auto" }}
+                  />
+                  <p className="font-bold text-gray-700 text-xs">Your cart is empty</p>
+                  <p className="text-[11px] text-gray-400 max-w-[180px]">Add some fresh items to your cart to checkout!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 border-b border-gray-100">
+                  {items.map((item) => (
+                    <div
+                      key={item.product.id}
+                      className="flex items-center gap-2.5 py-2.5 px-1 bg-white hover:bg-gray-50/50 transition-colors"
+                    >
+                      <div className="relative w-11 h-11 rounded-xs overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
+                        <Image
+                          src={item.product.image}
+                          alt={item.product.name}
+                          fill
+                          unoptimized
+                          className="object-contain p-1"
+                          sizes="44px"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 flex flex-col justify-between min-w-0 h-full py-0">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <span className="text-xs font-bold !text-[#0c2646] truncate leading-snug" style={{ color: "#0c2646" }}>{item.product.name}</span>
+                          <button
+                            onClick={() => removeItem(item.product.id)}
+                            className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
+                            title="Remove item"
+                          >
+                            <Trash2 size={14} className="stroke-[1.75]" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-1.5 mt-1">
+                          <span className="text-xs font-bold text-[#0da487] flex items-baseline gap-0.5">
+                            ${(item.product.price * item.quantity).toFixed(2)}
+                            {(item.product.unit_type || item.product.product_type) && (
+                              <span className="text-[10px] font-normal text-[#5282b8] ml-0.5">
+                                / {item.product.unit_type || item.product.product_type}
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center border border-gray-200 rounded-xs bg-white px-1.5 py-0.5 text-xs">
+                            <button
+                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                              className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
+                            >
+                              –
+                            </button>
+                            <span className="font-bold text-[#0c2646] px-1.5 min-w-[14px] text-center select-none text-xs">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                              className="text-gray-600 hover:text-black transition-colors px-1 cursor-pointer font-bold text-xs"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* BOTTOM HALF: VOICE ASSISTANT */}
-      <div className="h-1/2 flex flex-col overflow-hidden bg-white">
-        {/* Voice Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 text-white border-b border-white/10" style={{ background: "var(--theme-color2)" }}>
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
-              <Sparkles size={12} className="animate-pulse text-white" />
+            {/* Cart Total Summary / Checkout Buttons */}
+            {items.length > 0 && (
+              <div className="p-3.5 bg-white border-t border-[#eceff1] space-y-2.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-semibold">Total:</span>
+                  <span className="text-base font-extrabold text-gray-900">
+                    ${total.toFixed(2)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href="/cart"
+                    className="btn-outline flex-1 py-2 px-2 text-xs font-bold text-center"
+                  >
+                    <ShoppingBag size={13} />
+                    <span>View Cart</span>
+                  </Link>
+                  <Link
+                    href="/checkout"
+                    className="btn-primary flex-1 py-2 px-2 text-xs font-bold text-center"
+                  >
+                    <span>Checkout</span>
+                    <ChevronRight size={13} />
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* BOTTOM HALF: VOICE ASSISTANT */}
+          <div className="h-1/2 flex flex-col overflow-hidden bg-white">
+            {/* Voice Header */}
+            <div className="flex items-center justify-between px-4 py-2.5 text-white border-b border-white/10" style={{ background: "var(--theme-color2)" }}>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                  <Sparkles size={12} className="animate-pulse text-white" />
+                </div>
+                <span className="font-semibold text-xs text-white/95 tracking-wide">
+                  eFresh Voice Assistant
+                </span>
+              </div>
             </div>
-            <span className="font-semibold text-xs text-white/95 tracking-wide">
-              eFresh Voice Assistant
-            </span>
+
+            {/* Voice content */}
+            <VoiceAssistantSidebarPanel />
           </div>
-        </div>
 
-        {/* Voice content */}
-        <VoiceAssistantSidebarPanel />
-      </div>
-
-      {/* Custom Scrollbar CSS */}
-      <style jsx global>{`
+          {/* Custom Scrollbar CSS */}
+          <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
         }

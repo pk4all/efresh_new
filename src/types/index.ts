@@ -19,6 +19,7 @@ export interface Product {
   price: number;
   product_type?: string;
   unit_type?: string;
+  unit_type_id?: string | number | null;
   package_cost?: string;
   seasonal?: string;
   originalPrice: number;

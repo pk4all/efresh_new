@@ -26,9 +26,8 @@ export default function CartDrawer() {
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full z-[100006] bg-white shadow-2xl flex flex-col font-sans w-full sm:w-[360px] transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-full z-[100006] bg-white shadow-2xl flex flex-col font-sans w-full sm:w-[360px] transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         {/* Header */}
         <div
@@ -70,6 +69,7 @@ export default function CartDrawer() {
                 width={85}
                 height={85}
                 className="object-contain mb-1"
+              // style={{ width: "auto", height: "auto" }}
               />
               <p className="font-bold text-gray-700 text-xs">Your cart is empty</p>
               <p className="text-[11px] text-gray-400">Add items to get started</p>
