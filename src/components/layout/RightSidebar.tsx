@@ -1439,16 +1439,25 @@ function VoiceAssistantSidebarPanel() {
             await syncCartWithDb();
           }
           console.log(action, 'action');
+          // Show whatever products the backend returned, regardless of which
+          // action came back alongside them - not just the dedicated
+          // searchProducts action. Set before navigating (below) so the
+          // products page has them immediately on mount instead of a brief
+          // empty state.
+          const products = chatData?.data?.products;
+          console.log(products, 'products');
+          if (products?.length > 0) {
+            const mapped = (products || []).map(mapApiProductToProduct);
+            setProducts(mapped);
+          }
+
           if (action == 'searchProducts') {
             if (typeof window !== "undefined" && window.location.pathname !== "/products") {
-              router.push("/products");
+              // ?voice=1 tells the products page these results already came
+              // from the assistant - don't run its own default category
+              // fetch on top of (and overwrite) what we just set above.
+              router.push("/products?voice=1");
               await new Promise((resolve) => setTimeout(resolve, 500));
-            }
-            const products = chatData?.data?.products;
-            console.log(products, 'products');
-            if (products?.length > 0) {
-              const mapped = (products || []).map(mapApiProductToProduct);
-              setProducts(mapped);
             }
           }
           //'none',

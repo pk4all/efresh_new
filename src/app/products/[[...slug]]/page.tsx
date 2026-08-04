@@ -47,6 +47,13 @@ function ShopContent() {
   const initialCategory = searchParams.get("category");
   const initialSubcategory = searchParams.get("subcategory");
   const searchQuery = searchParams.get("q") || "";
+  // The voice assistant already fetched and set store.products itself, from
+  // the chat API's own response - this page shouldn't run its own default
+  // category fetch on top of that and clobber it. Read directly from
+  // searchParams (not captured into state) so it naturally "expires" the
+  // moment you do anything real here (clicking a category navigates to a
+  // path without this param, dropping back to normal fetching automatically).
+  const isVoiceProducts = searchParams.get("voice") === "1";
 
   const [categories, setCategories] = useState<CategoryApiItem[]>([]);
   const [subCategories, setSubCategories] = useState<any[]>([]);
@@ -60,8 +67,11 @@ function ShopContent() {
   const setStoreProducts = useCartStore((s) => s.setProducts);
   const products = useCartStore((state) => state.products);
   useEffect(() => {
+    // Don't stomp on the voice-provided list with this page's own (empty,
+    // since we're skipping the fetch below) local product state.
+    if (isVoiceProducts) return;
     setStoreProducts(dbProducts);
-  }, [dbProducts, setStoreProducts]);
+  }, [dbProducts, setStoreProducts, isVoiceProducts]);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [activeSubcategory, setActiveSubcategory] = useState<string>("");
@@ -133,7 +143,10 @@ function ShopContent() {
       }
     } else if (initialCategory) {
       setSelectedCategories([initialCategory]);
-    } else if (categories.length > 0) {
+    } else if (categories.length > 0 && !isVoiceProducts) {
+      // Auto-picking a default category would filter the voice-provided
+      // list down to just that category - leave it empty instead so every
+      // product the assistant returned actually shows.
       setSelectedCategories([categories[0].name]);
     } else {
       setSelectedCategories([]);
@@ -146,7 +159,7 @@ function ShopContent() {
     } else {
       setActiveSubcategory("");
     }
-  }, [categorySlug, subcategorySlug, initialCategory, initialSubcategory, categories]);
+  }, [categorySlug, subcategorySlug, initialCategory, initialSubcategory, categories, isVoiceProducts]);
 
   // Load subcategories for active category
   useEffect(() => {
@@ -191,6 +204,16 @@ function ShopContent() {
   }, [selectedCategories, activeSubcategory, searchQuery]);
 
   useEffect(() => {
+    if (isVoiceProducts) {
+      // Nothing to fetch - store.products already holds exactly what the
+      // assistant returned; just reflect that state and skip the network call.
+      setProductsLoading(false);
+      setLoadingMore(false);
+      setHasMore(false);
+      setTotalProducts(products.length);
+      return;
+    }
+
     async function loadProducts() {
       const requestedCategory = selectedCategories.length > 0
         ? selectedCategories[0]
@@ -302,7 +325,7 @@ function ShopContent() {
     if (categories.length > 0 || !loading) {
       loadProducts();
     }
-  }, [page, selectedCategories, activeSubcategory, searchQuery, categories, loading, categorySlug, initialCategory, vendorVersion]);
+  }, [page, selectedCategories, activeSubcategory, searchQuery, categories, loading, categorySlug, initialCategory, vendorVersion, isVoiceProducts, products.length]);
 
   const filtered = useMemo(() => {
     let result = [...products];
@@ -340,11 +363,13 @@ function ShopContent() {
   const paginated = filtered;
 
   const currentCategoryName = selectedCategories[0] || (categorySlug ? categorySlug.replace(/-/g, " ") : "");
-  const pageTitle = searchQuery
-    ? `Search Results for "${searchQuery}"`
-    : currentCategoryName
-      ? `${currentCategoryName}${activeSubcategory ? ` - ${activeSubcategory.replace(/-/g, " ")}` : ""}`
-      : "Shop All Products";
+  const pageTitle = isVoiceProducts
+    ? "Search Results"
+    : searchQuery
+      ? `Search Results for "${searchQuery}"`
+      : currentCategoryName
+        ? `${currentCategoryName}${activeSubcategory ? ` - ${activeSubcategory.replace(/-/g, " ")}` : ""}`
+        : "Shop All Products";
 
   return (
     <div className="max-w-[1600px] mx-auto px-2 sm:px-4 py-4 sm:py-6 font-sans w-full max-w-full overflow-x-hidden">
