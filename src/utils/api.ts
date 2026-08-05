@@ -67,7 +67,7 @@ export async function fetchCategories(params: GetCategoriesParams = {}) {
   if (!response.ok) {
     throw new Error(`Failed to fetch categories: ${response.statusText}`);
   }
-  
+
   const data = await response.json();
   categoriesCache[url] = data;
   return data;

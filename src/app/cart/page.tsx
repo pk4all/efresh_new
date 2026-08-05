@@ -143,12 +143,12 @@ export default function CartPage() {
 
           {/* Actions */}
           <div className="flex gap-3 flex-wrap">
-            <Link href="/products" className="btn-outline text-sm">
+            <Link href="/products" className="btn-outline text-sm inline-flex items-center gap-1.5">
               ← Continue Shopping
             </Link>
             <button onClick={() => { clearCart(); toast("Cart cleared"); }}
-              className="text-sm font-medium px-4 py-2 rounded-sm border hover:bg-red-50 hover:border-red-200 transition-colors"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-danger)" }}>
+              className="text-sm px-4 py-2 rounded-sm font-semibold inline-flex items-center gap-1.5 bg-red-500 text-white hover:bg-red-600 transition-colors">
+              <Trash2 size={16} />
               Clear Cart
             </button>
           </div>

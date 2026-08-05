@@ -18,7 +18,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
   const [pincode, setPincode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [shopType, setShopType] = useState<"express" | "collect">("express");
+  const [shopType, setShopType] = useState<"express" | "collect" | null>(null);
   const [selectedStore, setSelectedStore] = useState("");
   const [stores, setStores] = useState<any[]>([]);
 
@@ -99,7 +99,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
             pincode: pincode.trim(),
             vendorId: newVendorId,
             vendorData,
-            shopType,
+            shopType: shopType || "express",
           });
           setShowCartWarningModal(true);
         }
@@ -129,7 +129,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
       setPendingVendorData({
         pincode: pincode.trim(),
         vendorId: targetVendorId,
-        shopType,
+        shopType: shopType || "express",
       });
       setShowCartWarningModal(true);
       return;
@@ -141,7 +141,7 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
     if (pendingVendorData?.vendorData) {
       localStorage.setItem("vendor_data", JSON.stringify(pendingVendorData.vendorData));
     }
-    localStorage.setItem("shop_type", shopType);
+    localStorage.setItem("shop_type", shopType || "express");
 
     // Clear cart if vendor was changed & user accepted
     if (cartItems.length > 0 && (isChanging || hasConfirmedVendorChange)) {
@@ -213,14 +213,22 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
             )}
           </div>
 
-          {/* Delivery Pass Offer Badge */}
-          <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 flex items-start gap-3 shadow-2xs">
-            <div className="text-[var(--theme-color1)] p-1 bg-white border border-emerald-100 flex-shrink-0">
-              <Truck size={18} strokeWidth={2} />
+          {/* Top Banners Wrapper (Preserves space via visibility) */}
+          <div className={`space-y-5 ${selectedStore ? 'visible' : 'invisible'}`}>
+            {/* Minimum Order Alert Banner */}
+            <div className="p-3 border border-amber-200 bg-amber-50/70 text-center text-xs text-amber-900 font-medium">
+              Minimum order value for delivery is <strong className="text-amber-950 font-black">$50</strong>
             </div>
-            <div className="text-xs text-gray-800 leading-snug">
-              <span className="font-bold text-emerald-800 block mb-0.5">Free Delivery Offer</span>
-              <span>Free delivery on orders over $200 ($120 for delivery pass holders).</span>
+
+            {/* Delivery Pass Offer Badge */}
+            <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 flex items-start gap-3 shadow-2xs">
+              <div className="text-[var(--theme-color1)] p-1 bg-white border border-emerald-100 flex-shrink-0">
+                <Truck size={18} strokeWidth={2} />
+              </div>
+              <div className="text-xs text-gray-800 leading-snug">
+                <span className="font-bold text-emerald-800 block mb-0.5">Free Delivery Offer</span>
+                <span>Free delivery on orders over $200 ($120 for delivery pass holders).</span>
+              </div>
             </div>
           </div>
 
@@ -266,115 +274,118 @@ export default function PincodeModal({ forceOpen = false, onClose }: PincodeModa
             )}
           </div>
 
-          {/* Fulfillment Option Cards */}
-          <div className="space-y-2 pt-1">
-            <h6 className="text-xs font-bold text-gray-900 uppercase tracking-wider m-0">
-              How would you like to shop?
-            </h6>
+          {selectedStore && (
+            <>
+              {/* Fulfillment Option Cards */}
+              <div className="space-y-2 pt-1">
+                <h6 className="text-xs font-bold text-gray-900 uppercase tracking-wider m-0">
+                  How would you like to shop?
+                </h6>
 
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              {/* Express Local Delivery */}
-              <button
-                type="button"
-                onClick={() => setShopType("express")}
-                className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "express"
-                  ? "bg-emerald-50/70 border-2 border-[var(--theme-color1)] text-gray-900 shadow-2xs"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                  }`}
-              >
-                {shopType === "express" && (
-                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[var(--theme-color1)]" />
-                )}
-                <div className={`p-2 ${shopType === "express" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={shopType === "express" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}>
-                  <Package size={20} strokeWidth={2} />
-                </div>
-                <div>
-                  <span className="font-bold text-xs block leading-tight">Express Local</span>
-                  <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Doorstep Delivery</span>
-                </div>
-              </button>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  {/* Express Local Delivery */}
+                  <button
+                    type="button"
+                    onClick={() => setShopType("express")}
+                    className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "express"
+                      ? "bg-emerald-50/70 border-2 border-[var(--theme-color1)] text-gray-900 shadow-2xs"
+                      : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                      }`}
+                  >
+                    {shopType === "express" && (
+                      <CheckCircle2 size={16} className="absolute top-2 right-2 text-[var(--theme-color1)]" />
+                    )}
+                    <div className={`p-2 ${shopType === "express" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={shopType === "express" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}>
+                      <Package size={20} strokeWidth={2} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs block leading-tight">Express Local</span>
+                      <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Doorstep Delivery</span>
+                    </div>
+                  </button>
 
-              {/* Click & Collect */}
-              <button
-                type="button"
-                onClick={() => setShopType("collect")}
-                className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "collect"
-                  ? "bg-emerald-50/70 border-2 border-[var(--theme-color1)] text-gray-900 shadow-2xs"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                  }`}
-              >
-                {shopType === "collect" && (
-                  <CheckCircle2 size={16} className="absolute top-2 right-2 text-[var(--theme-color1)]" />
-                )}
-                <div className={`p-2 ${shopType === "collect" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={shopType === "collect" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}>
-                  <ShoppingBag size={20} strokeWidth={2} />
+                  {/* Click & Collect */}
+                  <button
+                    type="button"
+                    onClick={() => setShopType("collect")}
+                    className={`p-3.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border text-center relative ${shopType === "collect"
+                      ? "bg-emerald-50/70 border-2 border-[var(--theme-color1)] text-gray-900 shadow-2xs"
+                      : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                      }`}
+                  >
+                    {shopType === "collect" && (
+                      <CheckCircle2 size={16} className="absolute top-2 right-2 text-[var(--theme-color1)]" />
+                    )}
+                    <div className={`p-2 ${shopType === "collect" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={shopType === "collect" ? { background: "var(--theme-color2)", color: "#ffffff" } : {}}>
+                      <ShoppingBag size={20} strokeWidth={2} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs block leading-tight">Click &amp; Collect</span>
+                      <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Pickup in Store</span>
+                    </div>
+                  </button>
                 </div>
-                <div>
-                  <span className="font-bold text-xs block leading-tight">Click &amp; Collect</span>
-                  <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Pickup in Store</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Select Store Dropdown */}
-          <div className="space-y-1.5 pt-1">
-            <label className="text-[11px] font-semibold text-gray-600 block">
-              Preferred Pickup Store
-            </label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                <Store size={15} className="text-[var(--theme-color1)]" />
               </div>
-              <select
-                value={selectedStore}
-                onChange={(e) => setSelectedStore(e.target.value)}
-                className="w-full appearance-none border border-gray-200 pl-9 pr-8 py-2.5 text-xs text-gray-800 bg-white font-semibold outline-none focus:border-[var(--theme-color1)] cursor-pointer shadow-2xs"
-              >
-                <option value="">Select store location</option>
-                {stores.length > 0 ? (
-                  stores.map((s: any) => (
-                    <option key={s.id || s.slug || s.name} value={s.slug || s.name}>
-                      {s.name || s.title || `Store (${s.slug || s.pincode})`}
-                    </option>
-                  ))
-                ) : (
-                  <option value="main-store">Main Local Store (Express Available)</option>
-                )}
-              </select>
-              <ChevronDown
-                size={15}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none stroke-[2.5]"
-              />
-            </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-2 pt-2">
-            <button
-              type="button"
-              onClick={handleConfirmStore}
-              className="w-full py-3 text-xs font-bold text-white active:scale-[0.99] text-center transition-all cursor-pointer shadow-sm hover:shadow-md hover:opacity-90 uppercase tracking-wider"
-              style={{ background: "var(--theme-color2)", color: "#ffffff" }}
-            >
-              {shopType === "collect" ? "Reserve Collection" : "Save Delivery Location"}
-            </button>
+              {shopType && (
+                <>
+                  {/* Select Store Dropdown */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-semibold text-gray-600 block">
+                      Preferred Store
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                        <Store size={15} className="text-[var(--theme-color1)]" />
+                      </div>
+                      <select
+                        value={selectedStore}
+                        onChange={(e) => setSelectedStore(e.target.value)}
+                        className="w-full appearance-none border border-gray-200 pl-9 pr-8 py-2.5 text-xs text-gray-800 bg-white font-semibold outline-none focus:border-[var(--theme-color1)] cursor-pointer shadow-2xs"
+                      >
+                        <option value="">Select store location</option>
+                        {stores.length > 0 ? (
+                          stores.map((s: any) => (
+                            <option key={s.id || s.slug || s.name} value={s.slug || s.name}>
+                              {s.name || s.title || `Store (${s.slug || s.pincode})`}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="main-store">Main Local Store (Express Available)</option>
+                        )}
+                      </select>
+                      <ChevronDown
+                        size={15}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none stroke-[2.5]"
+                      />
+                    </div>
+                  </div>
 
-            {isDismissible && (
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full py-2.5 text-xs font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 text-center transition-colors cursor-pointer"
-              >
-                Decide Later
-              </button>
-            )}
-          </div>
+                  {/* Action Buttons */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmStore}
+                      className="w-full py-3 text-xs font-bold text-white active:scale-[0.99] text-center transition-all cursor-pointer shadow-sm hover:shadow-md hover:opacity-90 uppercase tracking-wider"
+                      style={{ background: "var(--theme-color2)", color: "#ffffff" }}
+                    >
+                      {shopType === "collect" ? "Reserve Collection" : "Save Delivery Location"}
+                    </button>
 
-          {/* Minimum Order Alert Banner */}
-          <div className="p-3 border border-amber-200 bg-amber-50/70 text-center text-xs text-amber-900 font-medium">
-            Minimum order value for delivery is <strong className="text-amber-950 font-black">$50</strong>
-          </div>
+                    {isDismissible && (
+                      <button
+                        type="button"
+                        onClick={handleClose}
+                        className="w-full py-2.5 text-xs font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 text-center transition-colors cursor-pointer"
+                      >
+                        Decide Later
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
 
         </div>
 

@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle, CreditCard, User, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, Sparkles, Calendar, Truck, Clock, MapPin } from "lucide-react";
+import { CheckCircle, CreditCard, User, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, Sparkles, Calendar, Truck, Clock, MapPin, XCircle } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
 import {
@@ -28,13 +28,11 @@ export default function CheckoutPage() {
   const [payment, setPayment] = useState("card");
   const [submitted, setSubmitted] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authTab, setAuthTab] = useState<"login" | "register">("login");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
-  const [showAuthPw, setShowAuthPw] = useState(false);
+  const wasLoggedInRef = useRef(false);
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
@@ -126,16 +124,22 @@ export default function CheckoutPage() {
         clearCart();
         localStorage.removeItem("agent_session_id");
       } else if (params.get("status") === "cancel") {
-        toast.error("Payment session was cancelled. Please try again.");
+        setCancelled(true);
+        // Optional: you can remove the toast if the full page is clearer
       }
     }
 
     const checkAuthAndLoad = () => {
       const token = localStorage.getItem("token");
       if (token) {
+        wasLoggedInRef.current = true;
         setIsLoggedIn(true);
         loadCheckoutData();
       } else {
+        if (wasLoggedInRef.current) {
+          window.location.href = "/products";
+          return;
+        }
         setIsLoggedIn(false);
         setLoadingAddresses(false);
         setShowNewAddressForm(false);
@@ -210,54 +214,7 @@ export default function CheckoutPage() {
     window.dispatchEvent(new Event("open-login-modal"));
   };
 
-  const handleInlineAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    try {
-      let data: any;
-      if (authTab === "login") {
-        data = await loginUser({
-          email: authForm.email,
-          password: authForm.password,
-        });
-      } else {
-        data = await registerUser({
-          name: authForm.name,
-          email: authForm.email,
-          password: authForm.password,
-        });
-      }
 
-      const token = data.data?.access_token || data.access_token;
-      const customerId = data.data?.customer_id || data.customer_id;
-
-      if (token) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("customer_id", String(customerId));
-
-        try {
-          const profileData = await fetchUserProfile();
-          const pData = profileData.data || profileData;
-          if (pData.name) {
-            localStorage.setItem("name", pData.name);
-          }
-        } catch (_) {
-          if (authForm.name) {
-            localStorage.setItem("name", authForm.name);
-          }
-        }
-      }
-
-      toast.success(authTab === "login" ? "Successfully signed in!" : "Account created successfully!");
-      window.dispatchEvent(new Event("storage"));
-      setIsLoggedIn(true);
-      await loadCheckoutData();
-    } catch (err: any) {
-      toast.error(err.message || "Authentication error");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
   const handleAddNewAddressSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -355,8 +312,8 @@ export default function CheckoutPage() {
         address_id: Number(selectedAddressId),
         address: form.address,
         zip_code: form.zip,
-        success_url: `${window.location.origin}/checkout?status=success`,
-        cancel_url: `${window.location.origin}/checkout?status=cancel`,
+        success_url: `${window.location.origin}/demo/checkout?status=success`,
+        cancel_url: `${window.location.origin}/demo/checkout?status=cancel`,
         notes: `Delivery Day: ${selectedZoneDay.day_name} (Zone: ${selectedZoneDay.zone_name})`,
       };
 
@@ -386,6 +343,29 @@ export default function CheckoutPage() {
     );
   }
 
+  if (cancelled) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-center">
+        <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-red-50">
+          <XCircle size={40} className="text-red-500" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--color-dark)" }}>
+          Payment Cancelled
+        </h1>
+        <p className="text-sm mb-2" style={{ color: "var(--color-muted)" }}>
+          Your payment session was cancelled or interrupted.
+        </p>
+        <p className="text-xs mb-6" style={{ color: "var(--color-muted)" }}>
+          No charges were made to your account.
+        </p>
+        <div className="flex justify-center gap-3">
+          <Link href="/products" className="btn-primary inline-flex">Back to Products</Link>
+          {/* <button onClick={() => setCancelled(false)} className="btn-primary">Try Checkout Again</button> */}
+        </div>
+      </div>
+    );
+  }
+
   if (success || submitted) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
@@ -402,7 +382,7 @@ export default function CheckoutPage() {
         <p className="text-xs mb-6" style={{ color: "var(--color-muted)" }}>
           You will receive updates about your delivery status shortly.
         </p>
-        <a href="/" className="btn-primary inline-flex">Back to Home</a>
+        <Link href="/products" className="btn-primary inline-flex">Back to Products</Link>
       </div>
     );
   }
@@ -417,114 +397,23 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2 space-y-5">
             {!isLoggedIn ? (
               <div className="card p-6 border-2 border-emerald-100 bg-white shadow-sm">
-                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-[#0da487]">
-                    <User size={22} />
+                <div className="flex flex-col items-center text-center py-4">
+                  <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center text-[#0da487] mb-4">
+                    <User size={28} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="font-bold text-base text-gray-900">
-                      Account Required to Complete Checkout
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      Sign in or create a free account to choose shipping address and complete order.
-                    </p>
-                  </div>
+                  <h2 className="font-bold text-xl text-gray-900 mb-2">
+                    Account Required to Checkout
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-8 max-w-sm">
+                    Please sign in or create a free account to choose your shipping address and complete your order.
+                  </p>
                   <button
                     type="button"
                     onClick={openLoginPopup}
-                    className="btn-primary text-xs px-3.5 py-2 font-semibold flex items-center gap-1.5 shadow-sm"
+                    className="btn-primary text-sm px-6 py-3.5 font-bold flex items-center justify-center gap-2 shadow-sm w-full max-w-xs"
                   >
-                    <LogIn size={14} /> Open Login Popup
+                    <LogIn size={18} /> Open Login Popup
                   </button>
-                </div>
-
-                {/* Auth Tab switcher */}
-                <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
-                  <button
-                    type="button"
-                    onClick={() => setAuthTab("login")}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${authTab === "login" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthTab("register")}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${authTab === "register" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                  >
-                    Create Account
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {authTab === "register" && (
-                    <div>
-                      <label className="block text-xs font-semibold mb-1 text-gray-700">Full Name *</label>
-                      <div className="relative">
-                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text" required placeholder="John Doe"
-                          value={authForm.name}
-                          onChange={(e) => setAuthForm(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full border rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none transition-colors focus:border-[#0da487]"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-700">Email Address *</label>
-                    <div className="relative">
-                      <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="email" required placeholder="you@example.com"
-                        value={authForm.email}
-                        onChange={(e) => setAuthForm(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full border rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none transition-colors focus:border-[#0da487]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-700">Password *</label>
-                    <div className="relative">
-                      <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type={showAuthPw ? "text" : "password"} required placeholder="••••••••"
-                        value={authForm.password}
-                        onChange={(e) => setAuthForm(prev => ({ ...prev, password: e.target.value }))}
-                        className="w-full border rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none transition-colors focus:border-[#0da487]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowAuthPw(!showAuthPw)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showAuthPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={handleInlineAuthSubmit}
-                      disabled={authLoading}
-                      className="btn-primary flex-1 py-3 justify-center text-sm font-semibold disabled:opacity-50"
-                    >
-                      {authLoading
-                        ? (authTab === "login" ? "Signing In..." : "Creating Account...")
-                        : (authTab === "login" ? "Sign In & Continue →" : "Create Account & Continue →")
-                      }
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openLoginPopup}
-                      className="btn-outline flex-1 py-3 justify-center text-sm font-semibold border-emerald-600 text-[#0da487] hover:bg-emerald-50"
-                    >
-                      Use Login Popup
-                    </button>
-                  </div>
                 </div>
               </div>
             ) : (
@@ -862,29 +751,29 @@ export default function CheckoutPage() {
           <div>
             <div className="card p-5 sticky top-24">
               <h2 className="font-bold text-base mb-4" style={{ color: "var(--color-dark)" }}>Order Summary</h2>
-              <div className="space-y-3 max-h-52 overflow-y-auto mb-4">
+              <div className="max-h-52 overflow-y-auto category-sidebar-scrollbar pr-3 mb-4">
                 {items.map((item) => (
-                  <div key={item.product.id} className="flex items-center gap-3">
-                    <div className="relative w-12 h-12 rounded-sm overflow-hidden bg-gray-50 flex-shrink-0">
-                      <Image
-                        src={item.product.image}
-                        alt={item.product.name}
-                        fill
-                        className="object-cover"
-                        sizes="48px"
-                        unoptimized
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
-                        }}
-                      />
-                      <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center font-bold"
-                        style={{ backgroundColor: "var(--color-primary)" }}>
-                        {item.quantity}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold line-clamp-2" style={{ color: "var(--color-dark)" }}>{item.product.name}</p>
+                  <div key={item.product.id} className="flex items-center justify-between gap-4 pt-4 pb-1 border-b last:border-0" style={{ borderColor: "var(--color-border)" }}>
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="relative w-14 h-14 flex-shrink-0 bg-white">
+                        <Image
+                          src={item.product.image}
+                          alt={item.product.name}
+                          fill
+                          className="object-contain"
+                          sizes="56px"
+                          unoptimized
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = getPublicAssetUrl("/images/placeholder.png");
+                          }}
+                        />
+                        <span className="absolute -top-2 -right-2 w-5 h-5 text-white text-[11px] flex items-center justify-center font-bold z-10 shadow-sm"
+                          style={{ backgroundColor: "var(--color-primary)" }}>
+                          {item.quantity}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold line-clamp-2" style={{ color: "var(--color-dark)" }}>{item.product.name}</p>
                     </div>
                     <span className="text-sm font-bold flex-shrink-0" style={{ color: "var(--color-primary)" }}>
                       ${(item.product.price * item.quantity).toFixed(2)}

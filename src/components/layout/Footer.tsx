@@ -48,11 +48,11 @@ const footerLinks = {
     { label: "Meat & Poultry", href: "/products/meat-and-poultry" },
   ],
   "Customer Care": [
-    { label: "Help Center & FAQ", href: "#" },
+    { label: "Help Center & FAQ", href: "/help-center" },
     { label: "Track Your Order", href: "#" },
-    { label: "Shipping Policy", href: "#" },
-    { label: "Returns & Refund Policy", href: "#" },
-    { label: "Terms & Conditions", href: "#" },
+    { label: "Shipping Policy", href: "/shipping-policy" },
+    { label: "Returns & Refund Policy", href: "/returns-policy" },
+    { label: "Terms & Conditions", href: "/terms-conditions" },
   ],
 };
 
