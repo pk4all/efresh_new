@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 // wss://api.elevenlabs.io without ever seeing the real API key.
 export async function POST() {
   try {
-    const apiKey = process.env.VOICE_AI_KEY || 'f22ac8e5743c6e0d8149a9e00e2e779f7ad8cb8f07b5163cdd94ef18a952a38c';
+    const apiKey = process.env.VOICE_AI_KEY || 'sk_8c1ee89c3123620b7313df576c4b5b81f428cb2f739c9435';
 
     if (!apiKey) {
       return NextResponse.json(
